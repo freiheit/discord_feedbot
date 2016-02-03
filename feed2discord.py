@@ -15,6 +15,7 @@ import re
 import configparser
 import logging
 import warnings
+import time
 
 if debug:
     logging.basicConfig(level=logging.DEBUG)
@@ -36,6 +37,7 @@ item_url_base = config['MAIN']['item_url_base']
 db_path = config['MAIN']['db_path']
 channel_id = config['MAIN']['channel_id']
 rss_refresh_time = config.getint('MAIN','rss_refresh_time')
+max_age = config.getint('MAIN','max_age')
 
 # Crazy workaround for a bug with parsing that doesn't apply on all pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
@@ -71,15 +73,19 @@ def background_check_feed():
                 print('item '+id+' unseen, processing:')
                 cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
                 conn.commit()
-                description = re.sub('<br */>',"\n",original_description)
-                print(' published: '+pubDate)
-                print(' title: '+title)
-                print(' url: '+url)
-#                yield from client.send_message(channel,
-#                   url+"\n"+
-#                   "**"+title+"**\n"+
-#                   "*"+pubDate+"*\n"+
-#                   description)
+                if time.mktime(item.published_parsed) > (time.time() - max_age):
+                    print(' fresh and ready for parsing')
+                    description = re.sub('<br */>',"\n",original_description)
+                    print(' published: '+pubDate)
+                    print(' title: '+title)
+                    print(' url: '+url)
+    #                yield from client.send_message(channel,
+    #                   url+"\n"+
+    #                   "**"+title+"**\n"+
+    #                   "*"+pubDate+"*\n"+
+    #                   description)
+                else:
+                    print(' too old; skipping')
             else:
                 print('item '+id+' seen before, skipping')
                 
