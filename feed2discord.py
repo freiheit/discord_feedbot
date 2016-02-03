@@ -1,12 +1,27 @@
 #!/usr/bin/python3
 
+debug = None
+
+import os
+
+if debug:
+    os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
+
 import feedparser
 import discord
 import asyncio
 import sqlite3
 import re
 import configparser
-import os
+import logging
+import warnings
+
+if debug:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
+warnings.resetwarnings()
 
 config = configparser.ConfigParser()
 for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']:
@@ -37,8 +52,10 @@ def background_check_feed():
     yield from client.wait_until_ready()
     channel = discord.Object(id=channel_id)
     while not client.is_closed:
-        client.send_typing(channel) # indicate we might be working on something
+        yield from client.send_typing(channel) # indicate we might be working on something
+        print('fetching and parsing '+feed_url)
         feed_data = feedparser.parse(feed_url)
+        print('done fetching')
         for item in feed_data.entries:
             id=item.id
             pubDate=item.published
@@ -47,17 +64,24 @@ def background_check_feed():
             url = item_url_base + id
 
             cursor = conn.cursor()
-            cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
+            cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
 
             data=cursor.fetchone()
             if data is None:
+                print('item '+id+' unseen, processing:')
+                cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
+                conn.commit()
                 description = re.sub('<br */>',"\n",original_description)
-                conn.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
-                yield from client.send_message(channel,
-                   url+"\n"+
-                   "**"+title+"**\n"+
-                   "*"+pubDate+"*\n"+
-                   description)
+                print(' published: '+pubDate)
+                print(' title: '+title)
+                print(' url: '+url)
+#                yield from client.send_message(channel,
+#                   url+"\n"+
+#                   "**"+title+"**\n"+
+#                   "*"+pubDate+"*\n"+
+#                   description)
+            else:
+                print('item '+id+' seen before, skipping')
                 
         yield from asyncio.sleep(rss_refresh_time)
         
