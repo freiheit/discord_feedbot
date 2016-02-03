@@ -6,15 +6,21 @@ import asyncio
 import sqlite3
 import re
 import configparser
+import os
 
-config.read('feed2discord.ini')
+config = configparser.ConfigParser()
+for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']:
+  if os.path.isfile(inifile):
+    config.read(inifile)
+    break # First config file wins
+
 login_email = config['MAIN']['login_email']
 login_password = config['MAIN']['login_password']
 feed_url = config['MAIN']['feed_url']
 item_url_base = config['MAIN']['item_url_base']
 db_path = config['MAIN']['db_path']
 channel_id = config['MAIN']['channel_id']
-rss_refresh_time = config['MAIN']['rss_refresh_time']
+rss_refresh_time = config.getint('MAIN','rss_refresh_time')
 
 # Crazy workaround for a bug with parsing that doesn't apply on all pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
@@ -31,6 +37,7 @@ def background_check_feed():
     yield from client.wait_until_ready()
     channel = discord.Object(id=channel_id)
     while not client.is_closed:
+        client.send_typing(channel) # indicate we might be working on something
         feed_data = feedparser.parse(feed_url)
         for item in feed_data.entries:
             id=item.id
@@ -46,11 +53,11 @@ def background_check_feed():
             if data is None:
                 description = re.sub('<br */>',"\n",original_description)
                 conn.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
-#                yield from client.send_message(channel,
-#                   url+"\n"+
-#                   "**"+title+"**\n"+
-#                   "*"+pubDate+"*\n"+
-#                   description)
+                yield from client.send_message(channel,
+                   url+"\n"+
+                   "**"+title+"**\n"+
+                   "*"+pubDate+"*\n"+
+                   description)
                 
         yield from asyncio.sleep(rss_refresh_time)
         
