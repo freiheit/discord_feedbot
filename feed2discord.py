@@ -5,14 +5,16 @@ import discord
 import asyncio
 import sqlite3
 import re
+import configparser
 
-login_email = 'blah@example.com'
-login_password = 'PASSWORD HERE'
-feed_url = 'https://community.elitedangerous.com/galnet-rss'
-item_url_base = 'https://community.elitedangerous.com/galnet/uid/'
-db_path = 'feed2discord.db'
-channel_id = 'MAGIC CHANNEL ID HERE'
-rss_refresh_time = 300
+config.read('feed2discord.ini')
+login_email = config['MAIN']['login_email']
+login_password = config['MAIN']['login_password']
+feed_url = config['MAIN']['feed_url']
+item_url_base = config['MAIN']['item_url_base']
+db_path = config['MAIN']['db_path']
+channel_id = config['MAIN']['channel_id']
+rss_refresh_time = config['MAIN']['rss_refresh_time']
 
 # Crazy workaround for a bug with parsing that doesn't apply on all pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
@@ -44,11 +46,11 @@ def background_check_feed():
             if data is None:
                 description = re.sub('<br */>',"\n",original_description)
                 conn.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
-                yield from client.send_message(channel,
-                   url+"\n"+
-                   "**"+title+"**\n"+
-                   "*"+pubDate+"*\n"+
-                   description)
+#                yield from client.send_message(channel,
+#                   url+"\n"+
+#                   "**"+title+"**\n"+
+#                   "*"+pubDate+"*\n"+
+#                   description)
                 
         yield from asyncio.sleep(rss_refresh_time)
         
