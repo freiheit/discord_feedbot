@@ -60,3 +60,11 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# Editor backup files:
+*~
+*.swp
+*.swo
+
+# sqlite DB file
+feed2discord.db
