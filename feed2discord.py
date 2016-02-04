@@ -35,7 +35,6 @@ login_password = config['MAIN']['login_password']
 feed_url = config['MAIN']['feed_url']
 item_url_base = config['MAIN']['item_url_base']
 db_path = config['MAIN']['db_path']
-channel_id = config['MAIN']['channel_id']
 rss_refresh_time = config.getint('MAIN','rss_refresh_time')
 max_age = config.getint('MAIN','max_age')
 
@@ -52,9 +51,10 @@ client = discord.Client()
 @asyncio.coroutine
 def background_check_feed():
     yield from client.wait_until_ready()
-    channel = discord.Object(id=channel_id)
+    channels = []
+    for key in config['CHANNELS']:
+        channels.append(discord.Object(id=config['CHANNELS'][key]))
     while not client.is_closed:
-        yield from client.send_typing(channel) # indicate we might be working on something
         print('fetching and parsing '+feed_url)
         feed_data = feedparser.parse(feed_url)
         print('done fetching')
@@ -79,11 +79,12 @@ def background_check_feed():
                     print(' published: '+pubDate)
                     print(' title: '+title)
                     print(' url: '+url)
-    #                yield from client.send_message(channel,
-    #                   url+"\n"+
-    #                   "**"+title+"**\n"+
-    #                   "*"+pubDate+"*\n"+
-    #                   description)
+                    for channel in channels:
+                        yield from client.send_message(channel,
+                           url+"\n"+
+                           "**"+title+"**\n"+
+                           "*"+pubDate+"*\n"+
+                           description)
                 else:
                     print(' too old; skipping')
             else:
