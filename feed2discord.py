@@ -99,13 +99,14 @@ def on_ready():
     print(client.user.id)
     print('------')
 
-loop = asyncio.get_event_loop()
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
 
-try:
-    loop.create_task(background_check_feed())
-    loop.run_until_complete(client.login(login_email, login_password))
-    loop.run_until_complete(client.connect())
-except Exception:
-    loop.run_until_complete(client.close())
-finally:
-    loop.close()
+    try:
+        loop.create_task(background_check_feed())
+        loop.run_until_complete(client.login(login_email, login_password))
+        loop.run_until_complete(client.connect())
+    except Exception:
+        loop.run_until_complete(client.close())
+    finally:
+        loop.close()
