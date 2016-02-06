@@ -1,8 +1,19 @@
 #!/usr/bin/python3
 
-debug = None
+# We do the config stuff very first, so that we can pull debug from there
+import configparser
 
 import os
+
+config = configparser.ConfigParser()
+for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']:
+  if os.path.isfile(inifile):
+    config.read(inifile)
+    break # First config file wins
+
+MAIN = config['MAIN']
+
+debug = MAIN.get('debug',0)
 
 if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
@@ -12,10 +23,9 @@ import discord
 import asyncio
 import sqlite3
 import re
-import configparser
+import time
 import logging
 import warnings
-import time
 
 if debug:
     logging.basicConfig(level=logging.DEBUG)
@@ -24,15 +34,7 @@ else:
 
 warnings.resetwarnings()
 
-config = configparser.ConfigParser()
-for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']:
-  if os.path.isfile(inifile):
-    config.read(inifile)
-    break # First config file wins
-
-login_email = config['MAIN']['login_email']
-login_password = config['MAIN']['login_password']
-db_path = config['MAIN']['db_path']
+db_path = MAIN.get('db_path','feed2discord.db')
 
 feeds = config.sections()
 feeds.remove('MAIN')
@@ -105,10 +107,7 @@ def background_check_feed(feed):
         
 @client.async_event
 def on_ready():
-    logging.info('Logged in as')
-    logging.info(client.user.name)
-    logging.info(client.user.id)
-    logging.info('------')
+    logging.info('Logged in as '+client.user.name+'('+client.user.id+')')
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
@@ -116,7 +115,7 @@ if __name__ == "__main__":
     try:
         for feed in feeds:
             loop.create_task(background_check_feed(feed))
-        loop.run_until_complete(client.login(login_email, login_password))
+        loop.run_until_complete(client.login(MAIN.get('login_email'), MAIN.get('login_password')))
         loop.run_until_complete(client.connect())
     except Exception:
         loop.run_until_complete(client.close())
