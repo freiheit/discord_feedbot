@@ -84,6 +84,9 @@ def background_check_feed(feed):
                 if time.mktime(item.published_parsed) > (time.time() - max_age):
                     print(' fresh and ready for parsing')
                     description = re.sub('<br */>',"\n",original_description)
+                    description = re.sub("\n+","\n",description)
+                    if len(description) > 1800:
+                      description = description[:1000] + "\n..."
                     print(' published: '+pubDate)
                     print(' title: '+title)
                     print(' url: '+url)
