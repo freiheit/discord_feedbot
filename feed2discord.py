@@ -13,7 +13,7 @@ for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']
 
 MAIN = config['MAIN']
 
-debug = MAIN.get('debug',0)
+debug = MAIN.getint('debug',0)
 
 if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
@@ -27,10 +27,17 @@ import time
 import logging
 import warnings
 
-if debug:
+if debug >= 2:
     logging.basicConfig(level=logging.DEBUG)
 else:
     logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger('feed2discord')
+
+if debug >= 1:
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 
 warnings.resetwarnings()
 
@@ -52,7 +59,7 @@ client = discord.Client()
 
 @asyncio.coroutine
 def background_check_feed(feed):
-    logging.info('Starting up background_check_feed for '+feed)
+    logger.info('Starting up background_check_feed for '+feed)
     yield from client.wait_until_ready()
 
     feed_url = config[feed]['feed_url']
@@ -61,13 +68,13 @@ def background_check_feed(feed):
     max_age = config.getint(feed,'max_age')
     channels = []
     for key in config[feed]['channels'].split(','):
-        logging.debug(' adding '+key+' to '+feed)
+        logger.debug(' adding '+key+' to '+feed)
         channels.append(discord.Object(id=config['CHANNELS'][key]))
 
     while not client.is_closed:
-        logging.info('processing feed:'+feed)
+        logger.info('processing feed:'+feed)
         feed_data = feedparser.parse(feed_url)
-        logging.debug('done fetching')
+        logger.debug('done fetching')
         for item in feed_data.entries:
             id=item.id
             pubDate=item.published
@@ -80,36 +87,36 @@ def background_check_feed(feed):
 
             data=cursor.fetchone()
             if data is None:
-                logging.info('item '+id+' unseen, processing:')
+                logger.info('item '+id+' unseen, processing:')
                 cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
                 conn.commit()
                 if time.mktime(item.published_parsed) > (time.time() - max_age):
-                    logging.info(' fresh and ready for parsing')
+                    logger.info(' fresh and ready for parsing')
                     description = re.sub('<br */>',"\n",original_description)
                     description = re.sub("\n+","\n",description)
                     if len(description) > 1800:
                       description = description[:1000] + "\n..."
-                    logging.debug(' published: '+pubDate)
-                    logging.debug(' title: '+title)
-                    logging.debug(' url: '+url)
+                    logger.debug(' published: '+pubDate)
+                    logger.debug(' title: '+title)
+                    logger.debug(' url: '+url)
                     for channel in channels:
-                        logging.debug('sending message to '+channel.str())
+                        logger.debug('sending message to '+channel.str())
                         yield from client.send_message(channel,
                            url+"\n"+
                            "**"+title+"**\n"+
                            "*"+pubDate+"*\n"+
                            description)
                 else:
-                    logging.info(' too old; skipping')
+                    logger.info(' too old; skipping')
             else:
-                logging.debug('item '+id+' seen before, skipping')
+                logger.debug('item '+id+' seen before, skipping')
                 
-        logging.debug('sleeping '+feed+' for '+rss_refresh_time+' seconds')
+        logger.debug('sleeping '+feed+' for '+rss_refresh_time+' seconds')
         yield from asyncio.sleep(rss_refresh_time)
         
 @client.async_event
 def on_ready():
-    logging.info('Logged in as '+client.user.name+'('+client.user.id+')')
+    logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
