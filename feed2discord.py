@@ -27,12 +27,14 @@ import time
 import logging
 import warnings
 
-if debug >= 2:
+if debug >= 3:
     logging.basicConfig(level=logging.DEBUG)
-else:
+elif debug >= 2:
     logging.basicConfig(level=logging.INFO)
+else:
+    logging.basicConfig(level=logging.WARNING)
 
-logger = logging.getLogger('feed2discord')
+logger = logging.getLogger(__name__)
 
 if debug >= 1:
     logger.setLevel(logging.DEBUG)
@@ -111,7 +113,7 @@ def background_check_feed(feed):
             else:
                 logger.debug('item '+id+' seen before, skipping')
                 
-        logger.debug('sleeping '+feed+' for '+rss_refresh_time+' seconds')
+        logger.debug('sleeping '+feed+' for '+str(rss_refresh_time)+' seconds')
         yield from asyncio.sleep(rss_refresh_time)
         
 @client.async_event
