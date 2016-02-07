@@ -65,7 +65,7 @@ def background_check_feed(feed):
         channels.append(discord.Object(id=config['CHANNELS'][key]))
 
     while not client.is_closed:
-        logging.info('fetching and parsing '+feed_url)
+        logging.info('processing feed:'+feed)
         feed_data = feedparser.parse(feed_url)
         logging.debug('done fetching')
         for item in feed_data.entries:
@@ -93,6 +93,7 @@ def background_check_feed(feed):
                     logging.debug(' title: '+title)
                     logging.debug(' url: '+url)
                     for channel in channels:
+                        logging.debug('sending message to '+channel.str())
                         yield from client.send_message(channel,
                            url+"\n"+
                            "**"+title+"**\n"+
@@ -103,6 +104,7 @@ def background_check_feed(feed):
             else:
                 logging.debug('item '+id+' seen before, skipping')
                 
+        logging.debug('sleeping '+feed+' for '+rss_refresh_time+' seconds')
         yield from asyncio.sleep(rss_refresh_time)
         
 @client.async_event
