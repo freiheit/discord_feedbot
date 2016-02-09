@@ -21,6 +21,7 @@ if debug:
 import feedparser
 import discord
 import asyncio
+import aiohttp
 import sqlite3
 import re
 import time
@@ -63,6 +64,8 @@ client = discord.Client()
 def background_check_feed(feed):
     logger.info('Starting up background_check_feed for '+feed)
     yield from client.wait_until_ready()
+    # make sure debug output has this check run in the right order...
+    yield from asyncio.sleep(1)
 
     feed_url = config[feed]['feed_url']
     item_url_base = config[feed]['item_url_base']
@@ -75,7 +78,9 @@ def background_check_feed(feed):
 
     while not client.is_closed:
         logger.info('processing feed:'+feed)
-        feed_data = feedparser.parse(feed_url)
+        http_response = yield from aiohttp.request('GET', feed_url)
+        http_data = yield from http_response.read()
+        feed_data = feedparser.parse(http_data)
         logger.debug('done fetching')
         for item in feed_data.entries:
             id=item.id
