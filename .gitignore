@@ -64,6 +64,7 @@ target/
 # Editor backup files:
 *~
 DEADJOE
+.#*
 *.swp
 *.swo
 
