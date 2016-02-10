@@ -77,49 +77,51 @@ def background_check_feed(feed):
         channels.append(discord.Object(id=config['CHANNELS'][key]))
 
     while not client.is_closed:
-        logger.info('processing feed:'+feed)
-        http_response = yield from aiohttp.request('GET', feed_url)
-        http_data = yield from http_response.read()
-        feed_data = feedparser.parse(http_data)
-        logger.debug('done fetching')
-        for item in feed_data.entries:
-            id=item.id
-            pubDate=item.published
-            title=item.title
-            original_description=item.description
-            url = item_url_base + id
+        try:
+            logger.info('processing feed:'+feed)
+            http_response = yield from aiohttp.request('GET', feed_url)
+            http_data = yield from http_response.read()
+            feed_data = feedparser.parse(http_data)
+            logger.debug('done fetching')
+            for item in feed_data.entries:
+                id=item.id
+                pubDate=item.published
+                title=item.title
+                original_description=item.description
+                url = item_url_base + id
 
-            cursor = conn.cursor()
-            cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
+                cursor = conn.cursor()
+                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
 
-            data=cursor.fetchone()
-            if data is None:
-                logger.info('item '+id+' unseen, processing:')
-                cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
-                conn.commit()
-                if time.mktime(item.published_parsed) > (time.time() - max_age):
-                    logger.info(' fresh and ready for parsing')
-                    description = re.sub('<br */>',"\n",original_description)
-                    description = re.sub("\n+","\n",description)
-                    if len(description) > 1800:
-                      description = description[:1000] + "\n..."
-                    logger.debug(' published: '+pubDate)
-                    logger.debug(' title: '+title)
-                    logger.debug(' url: '+url)
-                    for channel in channels:
-                        logger.debug('sending message to '+channel.name()+' on '+channel.server())
-                        yield from client.send_message(channel,
-                           url+"\n"+
-                           "**"+title+"**\n"+
-                           "*"+pubDate+"*\n"+
-                           description)
+                data=cursor.fetchone()
+                if data is None:
+                    logger.info('item '+id+' unseen, processing:')
+                    cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
+                    conn.commit()
+                    if time.mktime(item.published_parsed) > (time.time() - max_age):
+                        logger.info(' fresh and ready for parsing')
+                        description = re.sub('<br */>',"\n",original_description)
+                        description = re.sub("\n+","\n",description)
+                        if len(description) > 1800:
+                          description = description[:1000] + "\n..."
+                        logger.debug(' published: '+pubDate)
+                        logger.debug(' title: '+title)
+                        logger.debug(' url: '+url)
+                        for channel in channels:
+                            logger.debug('sending message to '+channel.name()+' on '+channel.server())
+                            yield from client.send_message(channel,
+                               url+"\n"+
+                               "**"+title+"**\n"+
+                               "*"+pubDate+"*\n"+
+                               description)
+                    else:
+                        logger.info(' too old; skipping')
                 else:
-                    logger.info(' too old; skipping')
-            else:
-                logger.debug('item '+id+' seen before, skipping')
-                
-        logger.debug('sleeping '+feed+' for '+str(rss_refresh_time)+' seconds')
-        yield from asyncio.sleep(rss_refresh_time)
+                    logger.debug('item '+id+' seen before, skipping')
+        finally:
+            # No matter what goes wrong, wait same time and try again
+            logger.debug('sleeping '+feed+' for '+str(rss_refresh_time)+' seconds')
+            yield from asyncio.sleep(rss_refresh_time)
         
 @client.async_event
 def on_ready():
