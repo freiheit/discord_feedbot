@@ -68,3 +68,4 @@ target/
 
 # sqlite DB file
 feed2discord.db
+feed2discord.local.ini

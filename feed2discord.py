@@ -6,7 +6,7 @@ import configparser
 import os
 
 config = configparser.ConfigParser()
-for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.ini']:
+for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.local.ini','feed2discord.ini']:
   if os.path.isfile(inifile):
     config.read(inifile)
     break # First config file wins
