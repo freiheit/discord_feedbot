@@ -118,6 +118,8 @@ def background_check_feed(feed):
                         logger.info(' too old; skipping')
                 else:
                     logger.debug('item '+id+' seen before, skipping')
+        except Exception as exc:
+            logger.error('Unexpected error: '+exc)
         finally:
             # No matter what goes wrong, wait same time and try again
             logger.debug('sleeping '+feed+' for '+str(rss_refresh_time)+' seconds')
