@@ -2,8 +2,7 @@
 
 # We do the config stuff very first, so that we can pull debug from there
 import configparser
-
-import os
+import os, sys
 
 config = configparser.ConfigParser()
 for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.local.ini','feed2discord.ini']:
@@ -18,15 +17,13 @@ debug = MAIN.getint('debug',0)
 if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
 
-import feedparser
-import discord
-import asyncio
-import aiohttp
+import discord, asyncio
+import feedparser, aiohttp
 import sqlite3
 import re
 import time
-import logging
-import warnings
+import logging, warnings
+from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
 if debug >= 3:
     logging.basicConfig(level=logging.DEBUG)
@@ -58,6 +55,9 @@ conn = sqlite3.connect(db_path)
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
               (id text PRIMARY KEY,published text,title text,url text,reposted text)''')
 
+conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
+              (feed text PRIMARY KEY,url text UNIQUE,lastmodified text,etag text)''')
+
 client = discord.Client()
 
 @asyncio.coroutine
@@ -67,22 +67,87 @@ def background_check_feed(feed):
     # make sure debug output has this check run in the right order...
     yield from asyncio.sleep(1)
 
-    feed_url = config[feed]['feed_url']
-    item_url_base = config[feed]['item_url_base']
-    rss_refresh_time = config.getint(feed,'rss_refresh_time')
-    max_age = config.getint(feed,'max_age')
+    FEED=config[feed]
+
+    feed_url = FEED.get('feed_url')
+    item_url_base = FEED.get('item_url_base',None)
+    rss_refresh_time = FEED.getint('rss_refresh_time',3600)
+    max_age = FEED.getint('max_age',86400)
     channels = []
-    for key in config[feed]['channels'].split(','):
-        logger.debug(' adding '+key+' to '+feed)
+    for key in FEED.get('channels').split(','):
+        logger.debug('adding channel '+key+' to '+feed)
         channels.append(discord.Object(id=config['CHANNELS'][key]))
 
     while not client.is_closed:
         try:
             logger.info('processing feed:'+feed)
-            http_response = yield from aiohttp.request('GET', feed_url)
+
+            http_headers = {}
+
+            cursor = conn.cursor()
+            cursor.execute("select lastmodified,etag from feed_info where feed=? OR url=?",[feed,feed_url])
+            data=cursor.fetchone()
+            if data is None:
+                logger.info('feed is new to us? saving info')
+                cursor.execute("REPLACE INTO feed_info (feed,url) VALUES (?,?)",[feed,feed_url])
+                conn.commit()
+                logger.debug('feed info saved')
+            else:
+                logger.debug('setting up extra headers for HTTP request.')
+                logger.debug(data)
+                lastmodified = data[0]
+                etag = data[1]
+                if lastmodified is not None and len(lastmodified):
+                    logger.debug('adding header If-Modified-Since: '+lastmodified)
+                    http_headers['If-Modified-Since'] = lastmodified
+                else:
+                    logger.debug('no stored lastmodified')
+                if etag is not None and len(etag):
+                    logger.debug('adding header ETag: '+etag)
+                    http_headers['ETag'] = etag
+                else:
+                    logger.debug('no stored ETag')
+
+            logger.debug('sending http request for '+feed_url)
+            http_response = yield from aiohttp.request('GET', feed_url, headers=http_headers)
+            logger.debug(http_response)
+            logger.debug(http_response.headers)
+            if http_response.status == 304:
+                logger.debug('data is old; moving on')
+                raise HTTPNotModified()
+            elif http_response.status != 200:
+                logger.debug('HTTP error: '+http_response.status)
+                raise HTTPError()
+            else:
+                logger.debug('HTTP success')
+
+            logger.debug('reading http response')
             http_data = yield from http_response.read()
+
+            logger.debug('parsing http data')
             feed_data = feedparser.parse(http_data)
-            logger.debug('done fetching')
+            logger.debug('done fetching')            
+
+
+            if 'ETAG' in http_response.headers:
+                etag = http_response.headers['ETAG']
+                logger.debug('saving etag: '+etag)
+                cursor.execute("UPDATE feed_info SET etag=? where feed=? or url=?",[etag,feed,feed_url])
+                conn.commit()
+                logger.debug('etag saved')
+            else:
+                logger.debug('no etag')
+
+            if 'LAST-MODIFIED' in http_response.headers:
+                modified = http_response.headers['LAST-MODIFIED']
+                logger.debug('saving lastmodified: '+modified)
+                cursor.execute("UPDATE feed_info SET lastmodified=? where feed=? or url=?",[modified,feed,feed_url])
+                conn.commit()
+                logger.debug('saved lastmodified')
+            else:
+                logger.debug('no last modified date')
+
+            logger.debug('processing entries')
             for item in feed_data.entries:
                 id=item.id
                 pubDate=item.published
@@ -90,7 +155,6 @@ def background_check_feed(feed):
                 original_description=item.description
                 url = item_url_base + id
 
-                cursor = conn.cursor()
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
 
                 data=cursor.fetchone()
@@ -118,8 +182,19 @@ def background_check_feed(feed):
                         logger.info(' too old; skipping')
                 else:
                     logger.debug('item '+id+' seen before, skipping')
-        except Exception as exc:
-            logger.error('Unexpected error: '+exc)
+        except HTTPNotModified:
+            logger.debug('Headers indicate feed unchanged since last time fetched: '+sys.exc_info()[0])
+        except HTTPError:
+            logger.debug('Unexpected HTTP error: '+sys.exc_info()[0])
+            logger.debug('Assuming error is transient and trying again later')
+        except sqlite3.Error as sqlerr:
+            logger.debug('sqlite3 error: ')
+            logger.debug(sqlerr)
+            raise
+        except:
+            logger.debug('Unexpected error: '+sys.exc_info()[0])
+            logger.debug(feed,' is giving up')
+            raise
         finally:
             # No matter what goes wrong, wait same time and try again
             logger.debug('sleeping '+feed+' for '+str(rss_refresh_time)+' seconds')
