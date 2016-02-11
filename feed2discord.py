@@ -149,35 +149,45 @@ def background_check_feed(feed):
 
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
+                logger.debug(feed+':processing this entry')
                 id=item.id
                 pubDate=item.published
-                title=item.title
-                original_description=item.description
-                url = item_url_base + id
 
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
 
                 data=cursor.fetchone()
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
-                    cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
+                    logger.debug(feed+':item:building message')
+                    message=''
+                    for field in FEED.get('fields','id,published').split(','):
+                        logger.debug(feed+':item:'+field+':added to message')
+                        message+=item[field]+"\n"
+                    cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
                     if time.mktime(item.published_parsed) > (time.time() - max_age):
                         logger.info(feed+':item:fresh and ready for parsing')
-                        description = re.sub('<br */>',"\n",original_description)
-                        description = re.sub("\n+","\n",description)
-                        if len(description) > 1800:
-                          description = description[:1000] + "\n..."
-                        logger.debug(feed+':item:published: '+pubDate)
-                        logger.debug(feed+':item:title: '+title)
-                        logger.debug(feed+':item:url: '+url)
+
+                        # try to replace HTML tags with the limited markdown that's supported by discord
+                        message = re.sub('<br[^<]+?>',"\n",message)
+                        message = re.sub('</?p[^<]+?>',"\n",message)
+                        message = re.sub('</?(strong|b)[^<]+?>',"**",message)
+                        message = re.sub('</?(em|i)[^<]+?>',"*",message)
+                        message = re.sub('</?u[^<]+?>',"_",message)
+                        message = re.sub('</?code[^<]+?>',"`",message)
+
+                        # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
+                        message = re.sub('<[^<]+?>', '', message)
+
+                        # squash newlines down to single ones, and do that last... 
+                        message = re.sub("\n+","\n",message)
+
+                        if len(message) > 1800:
+                          message = message[:1800] + "\n... post truncated ..."
+
                         for channel in channels:
                             logger.debug(feed+':item:sending message to '+channel.name()+' on '+channel.server())
-                            yield from client.send_message(channel,
-                               url+"\n"+
-                               "**"+title+"**\n"+
-                               "*"+pubDate+"*\n"+
-                               description)
+                            yield from client.send_message(channel,message)
                     else:
                         logger.info(feed+':too old; skipping')
                 else:
