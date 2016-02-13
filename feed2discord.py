@@ -172,7 +172,7 @@ def background_check_feed(feed):
                         logger.debug(feed+':item:title: '+title)
                         logger.debug(feed+':item:url: '+url)
                         for channel in channels:
-                            logger.debug(feed+':item:sending message to '+channel.name()+' on '+channel.server())
+                            logger.debug(feed+':item:sending message')
                             yield from client.send_message(channel,
                                url+"\n"+
                                "**"+title+"**\n"+
