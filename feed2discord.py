@@ -186,7 +186,7 @@ def background_check_feed(feed):
                           message = message[:1800] + "\n... post truncated ..."
 
                         for channel in channels:
-                            logger.debug(feed+':item:sending message to '+channel.name()+' on '+channel.server())
+                            logger.debug(feed+':item:sending message')
                             yield from client.send_message(channel,message)
                     else:
                         logger.info(feed+':too old; skipping')
