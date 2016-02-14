@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-
 # We do the config stuff very first, so that we can pull debug from there
 import configparser
 import os, sys
@@ -277,6 +276,8 @@ def background_check_feed(feed):
 @client.async_event
 def on_ready():
     logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
+    gameplayed=MAIN.get('gameplayed','github/freiheit/discord_rss_bot')
+    yield from client.change_status(game=discord.Game(name=gameplayed))
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
