@@ -81,7 +81,11 @@ def process_field(field,item,FEED):
 
     item_url_base = FEED.get('item_url_base',None)
     if field == 'guid' and item_url_base is not None:
-        return item_url_base + guid
+        if 'guid' in item:
+            return item_url_base + item['guid']
+        else:
+            logger.error('process_field:guid:no such field')
+            return ''
 
     logger.debug(feed+':process_field:'+field+': checking against regexes')
     stringmatch = re.match('^"(.+?)"$',field)
