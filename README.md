@@ -24,6 +24,11 @@ in as a library. Probably needs work. You'll need to replace your simple
 "client.run()" with the more complicated stuff inside the if __name__ block
 instead (in order to insert the background task coroutines into async)
 
+I'm guessing a few changes will need to be made in order to run as a
+library, like maybe changing how client= gets set, to something with a
+setup function that takes an optional client argument, maybe? If you figure
+it out, please give me a pull request.
+
 ## Requirements
 - Python 3.4.2+
 - [discord.py](https://github.com/Rapptz/discord.py)
