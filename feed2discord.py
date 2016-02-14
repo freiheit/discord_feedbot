@@ -167,6 +167,7 @@ def background_check_feed(feed):
                 yield from client.send_typing(channel)
 
             http_headers = {}
+            http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
 
             ### Download the actual feed, if changed since last fetch
             cursor = conn.cursor()
