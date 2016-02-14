@@ -95,7 +95,7 @@ def build_message(FEED,item):
     # Extract fields in order
     for field in FEED.get('fields','id,published').split(','):
         logger.debug(feed+':item:build_message:'+field+':added to message')
-        message+=process_field(field,item)+"\n"
+        message+=process_field(field,item)+"<br/>"
 
     # try to replace HTML tags with the limited markdown that's supported by discord
     message = re.sub('<br[^<]+?>',"\n",message)
@@ -108,8 +108,14 @@ def build_message(FEED,item):
     # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
     message = re.sub('<[^<]+?>', '', message)
 
+    # Naked spaces are terrible:
+    message = re.sub(' +\n','\n',message)
+    message = re.sub('\n +','\n',message)
+
+    # Random bits of highlights on their own lines seem to mess us up, too:
+
     # squash newlines down to single ones, and do that last... 
-    message = re.sub("\n+","\n",message)
+    message = re.sub("(\n)+","\n",message)
 
     if len(message) > 1800:
       message = message[:1800] + "\n... post truncated ..."
