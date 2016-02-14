@@ -60,6 +60,32 @@ conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
 
 client = discord.Client()
 
+def build_message(FEED,item):
+    message=''
+    # Extract fields in order
+    for field in FEED.get('fields','id,published').split(','):
+        logger.debug(feed+':item:build_message:'+field+':added to message')
+        message+=item[field]+"\n"
+
+    # try to replace HTML tags with the limited markdown that's supported by discord
+    message = re.sub('<br[^<]+?>',"\n",message)
+    message = re.sub('</?p[^<]+?>',"\n",message)
+    message = re.sub('</?(strong|b)[^<]+?>',"**",message)
+    message = re.sub('</?(em|i)[^<]+?>',"*",message)
+    message = re.sub('</?u[^<]+?>',"_",message)
+    message = re.sub('</?code[^<]+?>',"`",message)
+
+    # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
+    message = re.sub('<[^<]+?>', '', message)
+
+    # squash newlines down to single ones, and do that last... 
+    message = re.sub("\n+","\n",message)
+
+    if len(message) > 1800:
+      message = message[:1800] + "\n... post truncated ..."
+    return message
+
+
 @asyncio.coroutine
 def background_check_feed(feed):
     logger.info(feed+': Starting up background_check_feed')
@@ -149,42 +175,21 @@ def background_check_feed(feed):
 
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
-                logger.debug(feed+':processing this entry')
+                logger.debug(feed+':item:processing this entry')
+                logger.debug(item)
                 id=item.id
                 pubDate=item.published
-
+                logger.debug(feed+':item:checking database history for this item')
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
-
                 data=cursor.fetchone()
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
-                    logger.debug(feed+':item:building message')
-                    message=''
-                    for field in FEED.get('fields','id,published').split(','):
-                        logger.debug(feed+':item:'+field+':added to message')
-                        message+=item[field]+"\n"
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
                     if time.mktime(item.published_parsed) > (time.time() - max_age):
                         logger.info(feed+':item:fresh and ready for parsing')
-
-                        # try to replace HTML tags with the limited markdown that's supported by discord
-                        message = re.sub('<br[^<]+?>',"\n",message)
-                        message = re.sub('</?p[^<]+?>',"\n",message)
-                        message = re.sub('</?(strong|b)[^<]+?>',"**",message)
-                        message = re.sub('</?(em|i)[^<]+?>',"*",message)
-                        message = re.sub('</?u[^<]+?>',"_",message)
-                        message = re.sub('</?code[^<]+?>',"`",message)
-
-                        # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
-                        message = re.sub('<[^<]+?>', '', message)
-
-                        # squash newlines down to single ones, and do that last... 
-                        message = re.sub("\n+","\n",message)
-
-                        if len(message) > 1800:
-                          message = message[:1800] + "\n... post truncated ..."
-
+                        logger.debug(feed+':item:building message')
+                        message = build_message(FEED,item)
                         for channel in channels:
                             logger.debug(feed+':item:sending message')
                             yield from client.send_message(channel,message)
