@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+
 # We do the config stuff very first, so that we can pull debug from there
 import configparser
 import os, sys
@@ -61,6 +62,21 @@ conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
 
 client = discord.Client()
 
+DATE_FIELDS = ('published','pubDate','date','created','updated')
+def extract_best_item_date(item):
+    result = {}
+    for date_field in DATE_FIELDS:
+        if date_field in item:
+            result['date'] = item[date_field]
+            result['date_parsed'] = item[date_field+'_parsed']
+            break
+    else:
+        result['date'] = time.asctime(time.gmtime())
+        result['date_parsed'] = time.gmtime()
+
+    return result
+        
+
 def process_field(field,item,FEED):
     logger.debug(feed+':process_field:'+field+': started')
 
@@ -109,7 +125,7 @@ def process_field(field,item,FEED):
 def build_message(FEED,item):
     message=''
     # Extract fields in order
-    for field in FEED.get('fields','id,published').split(','):
+    for field in FEED.get('fields','id,description').split(','):
         logger.debug(feed+':item:build_message:'+field+':added to message')
         message+=process_field(field,item,FEED)+"\n"
 
@@ -219,7 +235,9 @@ def background_check_feed(feed):
                 logger.debug(feed+':item:processing this entry')
                 # logger.debug(item) # can be very noisy
                 id=item.id
-                pubDate=item.published
+                pubDateDict = extract_best_item_date(item)
+                pubDate = pubDateDict['date']
+                pubDate_parsed = pubDateDict['date_parsed']
                 logger.debug(feed+':item:checking database history for this item')
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
                 data=cursor.fetchone()
@@ -227,7 +245,7 @@ def background_check_feed(feed):
                     logger.info(feed+':item '+id+' unseen, processing:')
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
-                    if time.mktime(item.published_parsed) > (time.time() - max_age):
+                    if time.mktime(pubDate_parsed) > (time.time() - max_age):
                         logger.info(feed+':item:fresh and ready for parsing')
                         logger.debug(feed+':item:building message')
                         message = build_message(FEED,item)
