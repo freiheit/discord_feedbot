@@ -60,12 +60,42 @@ conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
 
 client = discord.Client()
 
+def process_field(field,item):
+    logger.debug(feed+':process_field:'+field+': started')
+
+    logger.debug(feed+':process_field:'+field+': checking against regexes')
+    stringmatch = re.match('^"(.+?)"$',field)
+    highlightmatch = re.match('^([*_~]+)(.+?)([*_~]+)$',field)
+    bigcodematch = re.match('^```(.+)$',field)
+    codematch = re.match('^`(.+)`$',field)
+    
+    if stringmatch is not None:
+        # Return an actual string literal from config:
+        logger.debug(feed+':process_field:'+field+':isString')
+        return stringmatch.group(1) # string from config
+    elif highlightmatch is not None:
+        logger.debug(feed+':process_field:'+field+':isHighlight')
+        # If there's any markdown on the field, return field with that markup on it:
+        return highlightmatch.group(1) + item[highlightmatch.group(2)] + highlightmatch.group(3)
+    elif bigcodematch is not None:
+        logger.debug(feed+':process_field:'+field+':isCodeBlock')
+        # Code blocks are a bit different, with a newline and stuff:
+        return '```\n'+item[bigcodematch.group(1)]
+    elif codematch is not None:
+        logger.debug(feed+':process_field:'+field+':isCode')
+        # Since code chunk can't have other highlights, also do them separately:
+        return '`'+item[codematch.group(1)]+'`'
+    else:
+        logger.debug(feed+':process_field:'+field+':isPlain')
+        # Otherwise, just return the plain field:
+        return item[field]
+
 def build_message(FEED,item):
     message=''
     # Extract fields in order
     for field in FEED.get('fields','id,published').split(','):
         logger.debug(feed+':item:build_message:'+field+':added to message')
-        message+=item[field]+"\n"
+        message+=process_field(field,item)+"\n"
 
     # try to replace HTML tags with the limited markdown that's supported by discord
     message = re.sub('<br[^<]+?>',"\n",message)
@@ -176,7 +206,7 @@ def background_check_feed(feed):
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
                 logger.debug(feed+':item:processing this entry')
-                logger.debug(item)
+                # logger.debug(item) # can be very noisy
                 id=item.id
                 pubDate=item.published
                 logger.debug(feed+':item:checking database history for this item')
