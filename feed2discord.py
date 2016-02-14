@@ -60,6 +60,62 @@ conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
 
 client = discord.Client()
 
+def process_field(field,item):
+    logger.debug(feed+':process_field:'+field+': started')
+
+    logger.debug(feed+':process_field:'+field+': checking against regexes')
+    stringmatch = re.match('^"(.+?)"$',field)
+    highlightmatch = re.match('^([*_~]+)(.+?)([*_~]+)$',field)
+    bigcodematch = re.match('^```(.+)$',field)
+    codematch = re.match('^`(.+)`$',field)
+    
+    if stringmatch is not None:
+        # Return an actual string literal from config:
+        logger.debug(feed+':process_field:'+field+':isString')
+        return stringmatch.group(1) # string from config
+    elif highlightmatch is not None:
+        logger.debug(feed+':process_field:'+field+':isHighlight')
+        # If there's any markdown on the field, return field with that markup on it:
+        return highlightmatch.group(1) + item[highlightmatch.group(2)] + highlightmatch.group(3)
+    elif bigcodematch is not None:
+        logger.debug(feed+':process_field:'+field+':isCodeBlock')
+        # Code blocks are a bit different, with a newline and stuff:
+        return '```\n'+item[bigcodematch.group(1)]
+    elif codematch is not None:
+        logger.debug(feed+':process_field:'+field+':isCode')
+        # Since code chunk can't have other highlights, also do them separately:
+        return '`'+item[codematch.group(1)]+'`'
+    else:
+        logger.debug(feed+':process_field:'+field+':isPlain')
+        # Otherwise, just return the plain field:
+        return item[field]
+
+def build_message(FEED,item):
+    message=''
+    # Extract fields in order
+    for field in FEED.get('fields','id,published').split(','):
+        logger.debug(feed+':item:build_message:'+field+':added to message')
+        message+=process_field(field,item)+"\n"
+
+    # try to replace HTML tags with the limited markdown that's supported by discord
+    message = re.sub('<br[^<]+?>',"\n",message)
+    message = re.sub('</?p[^<]+?>',"\n",message)
+    message = re.sub('</?(strong|b)[^<]+?>',"**",message)
+    message = re.sub('</?(em|i)[^<]+?>',"*",message)
+    message = re.sub('</?u[^<]+?>',"_",message)
+    message = re.sub('</?code[^<]+?>',"`",message)
+
+    # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
+    message = re.sub('<[^<]+?>', '', message)
+
+    # squash newlines down to single ones, and do that last... 
+    message = re.sub("\n+","\n",message)
+
+    if len(message) > 1800:
+      message = message[:1800] + "\n... post truncated ..."
+    return message
+
+
 @asyncio.coroutine
 def background_check_feed(feed):
     logger.info(feed+': Starting up background_check_feed')
@@ -149,35 +205,24 @@ def background_check_feed(feed):
 
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
+                logger.debug(feed+':item:processing this entry')
+                # logger.debug(item) # can be very noisy
                 id=item.id
                 pubDate=item.published
-                title=item.title
-                original_description=item.description
-                url = item_url_base + id
-
-                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
-
+                logger.debug(feed+':item:checking database history for this item')
+                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
                 data=cursor.fetchone()
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
-                    cursor.execute("INSERT INTO feed_items (id,published,title,url) VALUES (?,?,?,?)",[id,pubDate,title,url])
+                    cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
                     if time.mktime(item.published_parsed) > (time.time() - max_age):
                         logger.info(feed+':item:fresh and ready for parsing')
-                        description = re.sub('<br */>',"\n",original_description)
-                        description = re.sub("\n+","\n",description)
-                        if len(description) > 1800:
-                          description = description[:1000] + "\n..."
-                        logger.debug(feed+':item:published: '+pubDate)
-                        logger.debug(feed+':item:title: '+title)
-                        logger.debug(feed+':item:url: '+url)
+                        logger.debug(feed+':item:building message')
+                        message = build_message(FEED,item)
                         for channel in channels:
                             logger.debug(feed+':item:sending message')
-                            yield from client.send_message(channel,
-                               url+"\n"+
-                               "**"+title+"**\n"+
-                               "*"+pubDate+"*\n"+
-                               description)
+                            yield from client.send_message(channel,message)
                     else:
                         logger.info(feed+':too old; skipping')
                 else:
