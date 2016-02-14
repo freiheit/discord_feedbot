@@ -17,3 +17,4 @@ Bot for taking in an RSS feed and spitting it over into a Discord channel.
 - Python 3.4.2+
 - [discord.py](https://github.com/Rapptz/discord.py)
 - [feedparser](https://pypi.python.org/pypi/feedparser)
+- [html2text](https://pypi.python.org/pypi/html2text)

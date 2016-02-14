@@ -21,6 +21,7 @@ import discord, asyncio
 import feedparser, aiohttp
 import sqlite3
 import re
+import html2text
 import time
 import logging, warnings
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
@@ -88,31 +89,33 @@ def process_field(field,item):
     else:
         logger.debug(feed+':process_field:'+field+':isPlain')
         # Otherwise, just return the plain field:
-        return item[field]
+        htmlfixer = html2text.HTML2Text()
+        logger.debug(htmlfixer)
+        htmlfixer.ignore_links = True
+        htmlfixer.ignore_images = True
+
+        htmlfixer = html2text.HTML2Text()
+        htmlfixer.ignore_links = True
+        htmlfixer.ignore_images = True
+        htmlfixer.ignore_emphasis = False
+        htmlfixer.body_width = 1000
+        htmlfixer.unicode_snob = True
+        htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
+        return htmlfixer.handle(item[field])
 
 def build_message(FEED,item):
     message=''
     # Extract fields in order
     for field in FEED.get('fields','id,published').split(','):
         logger.debug(feed+':item:build_message:'+field+':added to message')
-        message+=process_field(field,item)+"<br/>"
+        message+=process_field(field,item)+"\n"
 
-    # try to replace HTML tags with the limited markdown that's supported by discord
-    message = re.sub('<br[^<]+?>',"\n",message)
-    message = re.sub('</?p[^<]+?>',"\n",message)
-    message = re.sub('</?(strong|b)[^<]+?>',"**",message)
-    message = re.sub('</?(em|i)[^<]+?>',"*",message)
-    message = re.sub('</?u[^<]+?>',"_",message)
-    message = re.sub('</?code[^<]+?>',"`",message)
-
-    # Try to strip all the other HTML out. Not "safe", but simple and should catch most stuff:
+    # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
     message = re.sub('<[^<]+?>', '', message)
 
     # Naked spaces are terrible:
     message = re.sub(' +\n','\n',message)
     message = re.sub('\n +','\n',message)
-
-    # Random bits of highlights on their own lines seem to mess us up, too:
 
     # squash newlines down to single ones, and do that last... 
     message = re.sub("(\n)+","\n",message)
