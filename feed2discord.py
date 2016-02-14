@@ -61,15 +61,18 @@ conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
 
 client = discord.Client()
 
-def process_field(field,item):
+def process_field(field,item,FEED):
     logger.debug(feed+':process_field:'+field+': started')
+
+    item_url_base = FEED.get('item_url_base',None)
+    if field == 'guid' and item_url_base is not None:
+        return item_url_base + guid
 
     logger.debug(feed+':process_field:'+field+': checking against regexes')
     stringmatch = re.match('^"(.+?)"$',field)
     highlightmatch = re.match('^([*_~]+)(.+?)([*_~]+)$',field)
     bigcodematch = re.match('^```(.+)$',field)
     codematch = re.match('^`(.+)`$',field)
-    
     if stringmatch is not None:
         # Return an actual string literal from config:
         logger.debug(feed+':process_field:'+field+':isString')
@@ -108,7 +111,7 @@ def build_message(FEED,item):
     # Extract fields in order
     for field in FEED.get('fields','id,published').split(','):
         logger.debug(feed+':item:build_message:'+field+':added to message')
-        message+=process_field(field,item)+"\n"
+        message+=process_field(field,item,FEED)+"\n"
 
     # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
     message = re.sub('<[^<]+?>', '', message)
@@ -135,7 +138,6 @@ def background_check_feed(feed):
     FEED=config[feed]
 
     feed_url = FEED.get('feed_url')
-    item_url_base = FEED.get('item_url_base',None)
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
     max_age = FEED.getint('max_age',86400)
     channels = []
