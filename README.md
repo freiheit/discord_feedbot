@@ -10,8 +10,19 @@ Bot for taking in an RSS feed and spitting it over into a Discord channel.
 2. Invite your bot account to all the channels it needs to be in.
 3. As the bot account, accept all those invites.
 4. `git clone` this repo.
-5. Edit feed2discord.ini to include your bot's credentials and channel IDs (the last number).
-6. Run the bot.
+5. Copy feed2discord.ini to feed2discord.local.ini
+6. Edit feed2discord.local.ini to include your bot's credentials and channel IDs (the last number).
+7. Figure out your feeds.
+   - You'll need to figure out what fields by examining what's in an item in your feeds.
+8. configure feeds in feed2discord.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
+9. Run the bot.
+
+## Use as Library
+
+I have not tested at all, but I have tried to make it possible to plug this
+in as a library. Probably needs work. You'll need to replace your simple
+"client.run()" with the more complicated stuff inside the if __name__ block
+instead (in order to insert the background task coroutines into async)
 
 ## Requirements
 - Python 3.4.2+
