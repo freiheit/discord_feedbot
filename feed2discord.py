@@ -163,6 +163,8 @@ def background_check_feed(feed):
     while not client.is_closed:
         try:
             logger.info(feed+': processing feed')
+            for channel in channels:
+                yield from client.send_typing(channel)
 
             http_headers = {}
 
