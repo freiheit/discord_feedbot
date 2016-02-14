@@ -180,7 +180,7 @@ def background_check_feed(feed):
                 id=item.id
                 pubDate=item.published
                 logger.debug(feed+':item:checking database history for this item')
-                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=? or url=?",[id,url])
+                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
                 data=cursor.fetchone()
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
