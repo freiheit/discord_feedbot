@@ -95,31 +95,49 @@ def process_field(field,item,FEED):
     elif highlightmatch is not None:
         logger.debug(feed+':process_field:'+field+':isHighlight')
         # If there's any markdown on the field, return field with that markup on it:
-        return highlightmatch.group(1) + item[highlightmatch.group(2)] + highlightmatch.group(3)
+        field = highlightmatch.group(2)
+        if field in item:
+            return highlightmatch.group(1) + item[field] + highlightmatch.group(3)
+        else:
+            logger.error('process_field:'+field+':no such field')
+            return ''
     elif bigcodematch is not None:
         logger.debug(feed+':process_field:'+field+':isCodeBlock')
         # Code blocks are a bit different, with a newline and stuff:
-        return '```\n'+item[bigcodematch.group(1)]
+        field = bigcodematch.group(1)
+        if field in item:
+            return '```\n'+item[field]
+        else:
+            logger.error('process_field:'+field+':no such field')
+            return ''
     elif codematch is not None:
         logger.debug(feed+':process_field:'+field+':isCode')
         # Since code chunk can't have other highlights, also do them separately:
-        return '`'+item[codematch.group(1)]+'`'
+        field = codematch.group(1)
+        if field in item:
+            return '`'+item[field]+'`'
+        else:
+            logger.error('process_field:'+field+':no such field')
+            return ''
     else:
         logger.debug(feed+':process_field:'+field+':isPlain')
         # Otherwise, just return the plain field:
-        htmlfixer = html2text.HTML2Text()
-        logger.debug(htmlfixer)
-        htmlfixer.ignore_links = True
-        htmlfixer.ignore_images = True
+        if field in item:
+            htmlfixer = html2text.HTML2Text()
+            logger.debug(htmlfixer)
+            htmlfixer.ignore_links = True
+            htmlfixer.ignore_images = True
 
-        htmlfixer = html2text.HTML2Text()
-        htmlfixer.ignore_links = True
-        htmlfixer.ignore_images = True
-        htmlfixer.ignore_emphasis = False
-        htmlfixer.body_width = 1000
-        htmlfixer.unicode_snob = True
-        htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
-        return htmlfixer.handle(item[field])
+            htmlfixer = html2text.HTML2Text()
+            htmlfixer.ignore_links = True
+            htmlfixer.ignore_images = True
+            htmlfixer.ignore_emphasis = False
+            htmlfixer.body_width = 1000
+            htmlfixer.unicode_snob = True
+            htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
+            return htmlfixer.handle(item[field])
+        else:
+            return ''
 
 def build_message(FEED,item):
     message=''
@@ -139,7 +157,7 @@ def build_message(FEED,item):
     message = re.sub("(\n)+","\n",message)
 
     if len(message) > 1800:
-      message = message[:1800] + "\n... post truncated ..."
+        message = message[:1800] + "\n... post truncated ..."
     return message
 
 
@@ -236,7 +254,14 @@ def background_check_feed(feed):
             for item in feed_data.entries:
                 logger.debug(feed+':item:processing this entry')
                 # logger.debug(item) # can be very noisy
-                id=item.id
+                id = ''
+                if 'id' in item:
+                    id=item.id
+                elif 'guid' in item:
+                    id=item.guid
+                else:
+                    logger.error(feed+':item:no id, skipping')
+                    continue
                 pubDateDict = extract_best_item_date(item)
                 pubDate = pubDateDict['date']
                 pubDate_parsed = pubDateDict['date_parsed']
