@@ -51,6 +51,8 @@ feeds.remove('CHANNELS')
 # Crazy workaround for a bug with parsing that doesn't apply on all pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
+httpclient = aiohttp.ClientSession()
+
 conn = sqlite3.connect(db_path)
 
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
@@ -212,7 +214,7 @@ def background_check_feed(feed):
                 else:
                     logger.debug(feed+':no stored ETag')
             logger.debug(feed+':sending http request for '+feed_url)
-            http_response = yield from aiohttp.request('GET', feed_url, headers=http_headers)
+            http_response = yield from httpclient.request('GET', feed_url, headers=http_headers)
             logger.debug(http_response)
             if http_response.status == 304:
                 logger.debug(feed+':data is old; moving on')
