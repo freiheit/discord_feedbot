@@ -131,10 +131,6 @@ def process_field(field,item,FEED):
             logger.debug(htmlfixer)
             htmlfixer.ignore_links = True
             htmlfixer.ignore_images = True
-
-            htmlfixer = html2text.HTML2Text()
-            htmlfixer.ignore_links = True
-            htmlfixer.ignore_images = True
             htmlfixer.ignore_emphasis = False
             htmlfixer.body_width = 1000
             htmlfixer.unicode_snob = True
@@ -290,15 +286,17 @@ def background_check_feed(feed):
         except HTTPNotModified:
             logger.debug(feed+':Headers indicate feed unchanged since last time fetched: '+sys.exc_info()[0])
         except HTTPError:
-            logger.debug(feed+':Unexpected HTTP error: '+sys.exc_info()[0])
-            logger.debug(feed+':Assuming error is transient and trying again later')
+            logger.warn(feed+':Unexpected HTTP error: '+sys.exc_info()[0])
+            logger.warn(sys.exc_info()[0])
+            logger.warn(feed+':Assuming error is transient and trying again later')
         except sqlite3.Error as sqlerr:
-            logger.debug(feed+':sqlite3 error: ')
-            logger.debug(sqlerr)
+            logger.error(feed+':sqlite3 error: ')
+            logger.error(sqlerr)
             raise
         except:
-            logger.debug(feed+':Unexpected error: '+sys.exc_info()[0])
-            logger.debug(feed+':giving up')
+            logger.error(feed+':Unexpected error:')
+            logger.error(sys.exc_info()[0])
+            logger.error(feed+':giving up')
             raise
         finally:
             # No matter what goes wrong, wait same time and try again
