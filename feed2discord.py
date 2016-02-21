@@ -284,9 +284,10 @@ def background_check_feed(feed):
                 else:
                     logger.debug(feed+':item:'+id+' seen before, skipping')
         except HTTPNotModified:
-            logger.debug(feed+':Headers indicate feed unchanged since last time fetched: '+sys.exc_info()[0])
+            logger.debug(feed+':Headers indicate feed unchanged since last time fetched:')
+            logger.debug(sys.exc_info()[0])
         except HTTPError:
-            logger.warn(feed+':Unexpected HTTP error: '+sys.exc_info()[0])
+            logger.warn(feed+':Unexpected HTTP error:')
             logger.warn(sys.exc_info()[0])
             logger.warn(feed+':Assuming error is transient and trying again later')
         except sqlite3.Error as sqlerr:
