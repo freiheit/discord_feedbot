@@ -287,18 +287,24 @@ def background_check_feed(feed):
                     logger.debug(feed+':item:'+id+' seen before, skipping')
         except HTTPNotModified:
             logger.debug(feed+':Headers indicate feed unchanged since last time fetched:')
-            logger.debug(sys.exc_info()[0])
+            logger.debug(sys.exc_info())
         except HTTPError:
             logger.warn(feed+':Unexpected HTTP error:')
-            logger.warn(sys.exc_info()[0])
+            logger.warn(sys.exc_info())
             logger.warn(feed+':Assuming error is transient and trying again later')
         except sqlite3.Error as sqlerr:
             logger.error(feed+':sqlite3 error: ')
+            logger.error(sys.exc_info())
             logger.error(sqlerr)
             raise
+        except discord.errors.Forbidden:
+            logger.error(feed+':discord.errors.Forbidden')
+            logger.error(sys.exc_info())
+            logger.error(feed+":Perhaps bot isn't allowed in one of the channels for this feed?")
+            # raise # or not? hmm...
         except:
             logger.error(feed+':Unexpected error:')
-            logger.error(sys.exc_info()[0])
+            logger.error(sys.exc_info())
             logger.error(feed+':giving up')
             raise
         finally:
