@@ -252,6 +252,8 @@ def background_check_feed(feed):
             else:
                 logger.debug(feed+':no last modified date')
 
+            http_response.close()
+
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
                 logger.debug(feed+':item:processing this entry')
