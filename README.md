@@ -1,6 +1,10 @@
-# discord_rss_bot
+# [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
 
-Bot for taking in an RSS feed and spitting it over into a Discord channel.
+Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
+
+Designed to be very configurable.
+
+It should be possible to use as a library in another bot.
 
 ## Setup
 
@@ -24,6 +28,8 @@ in as a library. Probably needs work. You'll need to replace your simple
 "client.run()" with the more complicated stuff inside the if __name__ block
 instead (in order to insert the background task coroutines into async)
 
+If you want to do live changes, you should be able to change the CONFIG variable.
+
 I'm guessing a few changes will need to be made in order to run as a
 library, like maybe changing how client= gets set, to something with a
 setup function that takes an optional client argument, maybe? If you figure
@@ -32,5 +38,5 @@ it out, please give me a pull request.
 ## Requirements
 - Python 3.4.2+
 - [discord.py](https://github.com/Rapptz/discord.py)
-- [feedparser](https://pypi.python.org/pypi/feedparser)
+- [feedparser](https://pypi.python.org/pypi/feedparser) (
 - [html2text](https://pypi.python.org/pypi/html2text)
