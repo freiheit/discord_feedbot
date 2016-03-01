@@ -183,8 +183,10 @@ def background_check_feed(feed):
     while not client.is_closed:
         try:
             logger.info(feed+': processing feed')
-            for channel in channels:
-                yield from client.send_typing(channel)
+
+            if FEED.getint('send_typing',0) >= 1:
+                for channel in channels:
+                    yield from client.send_typing(channel)
 
             http_headers = {}
             http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
