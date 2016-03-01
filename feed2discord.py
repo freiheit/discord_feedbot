@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+# Copyright (c) 2016 Eric Eisenhart
+# This software is released under an MIT-style license.
+# See LICENSE.md for full details.
 
 # We do the config stuff very first, so that we can pull debug from there
 import configparser
