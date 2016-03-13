@@ -144,6 +144,13 @@ def process_field(field,item,FEED):
         else:
             return ''
 
+def check_item_filter(FEED,item):
+    if 'filter_field' in item:
+      if 'filter_exclude' in item:
+      
+    else:
+      return True
+
 def build_message(FEED,item):
     message=''
     # Extract fields in order
@@ -282,12 +289,15 @@ def background_check_feed(feed):
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
                     if time.mktime(pubDate_parsed) > (time.time() - max_age):
-                        logger.info(feed+':item:fresh and ready for parsing')
-                        logger.debug(feed+':item:building message')
-                        message = build_message(FEED,item)
-                        for channel in channels:
-                            logger.debug(feed+':item:sending message')
-                            yield from client.send_message(channel,message)
+                        if check_item_filter(FEED,item):
+                            logger.info(feed+':item:fresh and ready for parsing')
+                            logger.debug(feed+':item:building message')
+                            message = build_message(FEED,item)
+                            for channel in channels:
+                                logger.debug(feed+':item:sending message')
+                                yield from client.send_message(channel,message)
+                        else:
+                          logger.info(feed+':item excluded by filter; skipping')
                     else:
                         logger.info(feed+':too old; skipping')
                 else:
