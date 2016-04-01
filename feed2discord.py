@@ -292,6 +292,8 @@ def background_check_feed(feed):
                     else:
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
+                        logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
+                        logger.debug(feed+':now:localtime:'+str(time.localtime()))
                         logger.debug(feed+':pubDate:'+str(pubDate))
                         logger.debug(feed+':pubDate_parsed:'+str(pubDate_parsed))
                         if debug >= 4:
