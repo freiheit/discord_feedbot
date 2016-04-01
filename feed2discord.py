@@ -274,6 +274,7 @@ def background_check_feed(feed):
                 pubDateDict = extract_best_item_date(item)
                 pubDate = pubDateDict['date']
                 pubDate_parsed = pubDateDict['date_parsed']
+                logger.debug(feed+':item:id:'+id)
                 logger.debug(feed+':item:checking database history for this item')
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
                 data=cursor.fetchone()
@@ -290,6 +291,11 @@ def background_check_feed(feed):
                             yield from client.send_message(channel,message)
                     else:
                         logger.info(feed+':too old; skipping')
+                        logger.debug(feed+':now:'+str(time.time()))
+                        logger.debug(feed+':pubDate:'+str(pubDate))
+                        logger.debug(feed+':pubDate_parsed:'+str(pubDate_parsed))
+                        if debug >= 4:
+                            logger.debug(item)
                 else:
                     logger.debug(feed+':item:'+id+' seen before, skipping')
         except HTTPNotModified:
