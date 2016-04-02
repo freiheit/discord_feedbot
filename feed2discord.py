@@ -70,7 +70,7 @@ DATE_FIELDS = ('published','pubDate','date','created','updated')
 def extract_best_item_date(item):
     result = {}
     for date_field in DATE_FIELDS:
-        if date_field in item:
+        if date_field in item and len(item[date_field]) > 0:
             result['date'] = item[date_field]
             result['date_parsed'] = item[date_field+'_parsed']
             break
