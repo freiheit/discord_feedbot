@@ -45,6 +45,9 @@ else:
 
 warnings.resetwarnings()
 
+os.environ['TZ'] = 'UTC'
+time.tzset()
+
 db_path = MAIN.get('db_path','feed2discord.db')
 
 feeds = config.sections()
