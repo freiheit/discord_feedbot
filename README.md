@@ -6,6 +6,10 @@ Designed to be very configurable.
 
 It should be possible to use as a library in another bot.
 
+Since this bot doesn't *react* to anything in channels or messages, you could always
+have it sign into the same account as another bot, and externally it should appear to
+be a single bot.
+
 ## Setup
 
 1.  Create a new bot account on Discord at https://discordapp.com/register
