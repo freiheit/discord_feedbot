@@ -348,7 +348,10 @@ if __name__ == "__main__":
     try:
         for feed in feeds:
             loop.create_task(background_check_feed(feed))
-        loop.run_until_complete(client.login(MAIN.get('login_email'), MAIN.get('login_password')))
+        if 'login_token' in MAIN:
+            loop.run_until_complete(client.login(MAIN.get('login_token')))
+        else:
+            loop.run_until_complete(client.login(MAIN.get('login_email'), MAIN.get('login_password')))
         loop.run_until_complete(client.connect())
     except Exception:
         loop.run_until_complete(client.close())

@@ -12,18 +12,20 @@ be a single bot.
 
 ## Setup
 
-1.  Create a new bot account on Discord at https://discordapp.com/register
-    (may require separate browser, Incognito window, private browsing mode, or
-    something like that ...)
-2. Invite your bot account to all the channels it needs to be in.
-3. As the bot account, accept all those invites.
-4. `git clone` this repo.
-5. Copy feed2discord.ini to feed2discord.local.ini
-6. Edit feed2discord.local.ini to include your bot's credentials and channel IDs (the last number).
-7. Figure out your feeds.
+1. Go here: https://discordapp.com/developers/applications/me#top
+2. Register an "application" and create an "app bot user".
+3. Replace "APP_CLIENT_ID" with the App's Client ID in this URL:
+   https://discordapp.com/oauth2/authorize?&client_id=APP_CLIENT_ID&scope=bot&permissions=153600
+4. Give that URL to the Discord server/guild owner and have them authorize
+   the bot.
+5. `git clone` this repo.
+6. Copy feed2discord.ini to feed2discord.local.ini
+7. Put the App Bot User's 'Token' in the .ini file.
+8. Get all the channel IDs (last bit of the channel link)
+9. Figure out your feeds.
    - You'll need to figure out what fields by examining what's in an item in your feeds.
-8. configure feeds in feed2discord.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
-9. Run the bot.
+10. configure feeds in feed2discord.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
+11. Run the bot.
 
 ## Use as Library
 
@@ -42,5 +44,5 @@ it out, please give me a pull request.
 ## Requirements
 - Python 3.4.2+
 - [discord.py](https://github.com/Rapptz/discord.py)
-- [feedparser](https://pypi.python.org/pypi/feedparser) (
+- [feedparser](https://pypi.python.org/pypi/feedparser)
 - [html2text](https://pypi.python.org/pypi/html2text)
