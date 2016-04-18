@@ -192,7 +192,13 @@ def background_check_feed(feed):
 
             if FEED.getint('send_typing',0) >= 1:
                 for channel in channels:
-                    yield from client.send_typing(channel)
+                    try:
+                        yield from client.send_typing(channel)
+                    except discord.errors.Forbidden:
+                        logger.error(feed+':discord.errors.Forbidden')
+                        logger.error(sys.exc_info())
+                        logger.error(feed+":Perhaps bot isn't allowed in one this channel?")
+                        logger.error(channel)
 
             http_headers = {}
             http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
