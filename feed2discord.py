@@ -232,9 +232,11 @@ def background_check_feed(feed):
             logger.debug(http_response)
             if http_response.status == 304:
                 logger.debug(feed+':data is old; moving on')
+                http_response.close()
                 raise HTTPNotModified()
             elif http_response.status != 200:
                 logger.debug(feed+':HTTP error: '+http_response.status)
+                http_response.close()
                 raise HTTPError()
             else:
                 logger.debug(feed+':HTTP success')
