@@ -45,8 +45,10 @@ else:
 
 warnings.resetwarnings()
 
-os.environ['TZ'] = 'UTC'
-time.tzset()
+# Because windows hates you
+if hasattr(time, 'tzset'):
+  os.environ['TZ'] = 'UTC'
+  time.tzset()
 
 db_path = MAIN.get('db_path','feed2discord.db')
 
