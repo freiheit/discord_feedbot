@@ -28,7 +28,7 @@ import pytz, time
 from datetime import datetime
 import dateutil.parser as dup
 import html2text
-import logging, warnings
+import logging, warnings, traceback
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
 if debug >= 3:
@@ -356,7 +356,8 @@ def background_check_feed(feed):
             # raise # or not? hmm...
         except:
             logger.error(feed+':Unexpected error:')
-            logger.error(sys.exc_info())
+            # logger.error(sys.exc_info())
+            logger.error(traceback.format_exc())
             logger.error(feed+':giving up')
             raise
         finally:
