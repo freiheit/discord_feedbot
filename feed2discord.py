@@ -24,9 +24,11 @@ import discord, asyncio
 import feedparser, aiohttp
 import sqlite3
 import re
+import pytz, time
+from datetime import datetime
+import dateutil.parser as dup
 import html2text
-import time
-import logging, warnings
+import logging, warnings, traceback
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
 if debug >= 3:
@@ -46,9 +48,14 @@ else:
 warnings.resetwarnings()
 
 # Because windows hates you
-if hasattr(time, 'tzset'):
-  os.environ['TZ'] = 'UTC'
-  time.tzset()
+#if hasattr(time, 'tzset'):
+#  os.environ['TZ'] = 'UTC'
+#  time.tzset()
+tzstr = MAIN.get('timezone', 'utc')
+try:
+    timezone = pytz.timezone(tzstr)
+except Exception as e:
+    timezone = pytz.utc
 
 db_path = MAIN.get('db_path','feed2discord.db')
 
@@ -73,18 +80,37 @@ client = discord.Client()
 
 DATE_FIELDS = ('published','pubDate','date','created','updated')
 def extract_best_item_date(item):
+    global timezone
     result = {}
+
+    #Look for something vaguely timestamp-ish.
     for date_field in DATE_FIELDS:
         if date_field in item and len(item[date_field]) > 0:
-            result['date'] = item[date_field]
-            result['date_parsed'] = item[date_field+'_parsed']
-            break
-    else:
-        result['date'] = time.asctime(time.gmtime())
-        result['date_parsed'] = time.gmtime()
+            try:
+                date_obj = dup.parse(item[date_field])
+
+                if date_obj.tzinfo is None:
+                    timezone.localize(date_obj)
+
+                #result['date'] = item[date_field]
+                #result['date_parsed'] = item[date_field+"_parsed"]
+
+                #Standardize stored time based on the timezone in the ini file
+                result['date'] = date_obj.strftime("%a %b %d %H:%M:%S %Z %Y")
+                result['date_parsed'] = date_obj
+
+                return result
+            except Exception as e:
+                pass
+
+    #No potentials found, default to current timezone's "now"
+    curtime = timezone.localize(datetime.now())
+    result['date'] = curtime.strftime("%a %b %d %H:%M:%S %Z %Y")
+    result['date_parsed'] = curtime
+
 
     return result
-        
+
 
 def process_field(field,item,FEED):
     logger.debug(feed+':process_field:'+field+': started')
@@ -163,7 +189,7 @@ def build_message(FEED,item):
     message = re.sub(' +\n','\n',message)
     message = re.sub('\n +','\n',message)
 
-    # squash newlines down to single ones, and do that last... 
+    # squash newlines down to single ones, and do that last...
     message = re.sub("(\n)+","\n",message)
 
     if len(message) > 1800:
@@ -173,6 +199,7 @@ def build_message(FEED,item):
 
 @asyncio.coroutine
 def background_check_feed(feed):
+    global timezone
     logger.info(feed+': Starting up background_check_feed')
     yield from client.wait_until_ready()
     # make sure debug output has this check run in the right order...
@@ -249,7 +276,7 @@ def background_check_feed(feed):
 
             logger.debug(feed+':parsing http data')
             feed_data = feedparser.parse(http_data)
-            logger.debug(feed+':done fetching')            
+            logger.debug(feed+':done fetching')
 
 
             if 'ETAG' in http_response.headers:
@@ -295,7 +322,7 @@ def background_check_feed(feed):
                     logger.info(feed+':item '+id+' unseen, processing:')
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
-                    if time.mktime(pubDate_parsed) > (time.time() - max_age):
+                    if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                         logger.debug(feed+':item:building message')
                         message = build_message(FEED,item)
@@ -307,8 +334,10 @@ def background_check_feed(feed):
                         logger.debug(feed+':now:'+str(time.time()))
                         logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
                         logger.debug(feed+':now:localtime:'+str(time.localtime()))
+                        logger.debug(feed+':timezone.localize(datetime.now()):'+str(timezone.localize(datetime.now())))
                         logger.debug(feed+':pubDate:'+str(pubDate))
                         logger.debug(feed+':pubDate_parsed:'+str(pubDate_parsed))
+                        logger.debug(feed+':pubDate_parsed.astimezome(timezone):'+str(pubDate_parsed.astimezone(timezone)))
                         if debug >= 4:
                             logger.debug(item)
                 else:
@@ -332,14 +361,15 @@ def background_check_feed(feed):
             # raise # or not? hmm...
         except:
             logger.error(feed+':Unexpected error:')
-            logger.error(sys.exc_info())
+            # logger.error(sys.exc_info())
+            logger.error(traceback.format_exc())
             logger.error(feed+':giving up')
             raise
         finally:
             # No matter what goes wrong, wait same time and try again
             logger.debug(feed+':sleeping for '+str(rss_refresh_time)+' seconds')
             yield from asyncio.sleep(rss_refresh_time)
-        
+
 @client.async_event
 def on_ready():
     logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
