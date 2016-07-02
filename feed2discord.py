@@ -89,6 +89,9 @@ def extract_best_item_date(item):
             try:
                 date_obj = dup.parse(item[date_field])
 
+                if date_obj.tzinfo is None:
+                    timezone.localize(date_obj)
+
                 #result['date'] = item[date_field]
                 #result['date_parsed'] = item[date_field+"_parsed"]
 
@@ -319,7 +322,7 @@ def background_check_feed(feed):
                     logger.info(feed+':item '+id+' unseen, processing:')
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
-                    if abs(timezone.localize(pubDate_parsed) - timezone.localize(datetime.now())).seconds < max_age:
+                    if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                         logger.debug(feed+':item:building message')
                         message = build_message(FEED,item)
