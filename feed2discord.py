@@ -150,7 +150,8 @@ def process_field(field,item,FEED):
     elif codematch is not None:
         logger.debug(feed+':process_field:'+field+':isCode')
         # Since code chunk can't have other highlights, also do them separately:
-        field = codematch.group(1) if field in item:
+        field = codematch.group(1)
+        if field in item:
             return '`'+item[field]+'`'
         else:
             logger.error('process_field:'+field+':no such field')
