@@ -334,8 +334,10 @@ def background_check_feed(feed):
                         logger.debug(feed+':now:'+str(time.time()))
                         logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
                         logger.debug(feed+':now:localtime:'+str(time.localtime()))
+                        logger.debug(feed+':timezone.localize(datetime.now()):'+str(timezone.localize(datetime.now())))
                         logger.debug(feed+':pubDate:'+str(pubDate))
                         logger.debug(feed+':pubDate_parsed:'+str(pubDate_parsed))
+                        logger.debug(feed+':pubDate_parsed.astimezome(timezone):'+str(pubDate_parsed.astimezone(timezone)))
                         if debug >= 4:
                             logger.debug(item)
                 else:
