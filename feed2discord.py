@@ -242,22 +242,31 @@ def actually_send_message(channel_object,message,delay):
 
 # The main work loop
 # One of these is run for each feed.
+# It's an asyncio thing. "yield from" (sleep or I/O) returns to main loop
+# and gives other feeds a chance to run.
 @asyncio.coroutine
 def background_check_feed(feed,asyncioloop):
     global timezone
     logger.info(feed+': Starting up background_check_feed')
+
+    # Try to wait until Discord client has connected, etc:
     yield from client.wait_until_ready()
     # make sure debug output has this check run in the right order...
     yield from asyncio.sleep(1)
 
+    # just a bit easier to use...
     FEED=config[feed]
 
+    # pull config for this feed out:
     feed_url = FEED.get('feed_url')
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
     max_age = FEED.getint('max_age',86400)
+    
+    # loop through all the channels this feed is configured to send to
     channels = []
     for key in FEED.get('channels').split(','):
         logger.debug(feed+': adding channel '+key)
+        # stick a dict in the channels array so we have more to work with
         channels.append(
             {
               'object': discord.Object(id=config['CHANNELS'][key]),
@@ -266,10 +275,14 @@ def background_check_feed(feed,asyncioloop):
             }
         )
 
+    # Basically run forever
     while not client.is_closed:
+        # And tries to catch all the exceptions and just keep going
+        # (but see list of except/finally stuff below)
         try:
             logger.info(feed+': processing feed')
 
+            # If send_typing is on for the feed, send a little "typing ..." whenever a feed is being worked on.
             if FEED.getint('send_typing',0) >= 1:
                 for channel in channels:
                     try:
