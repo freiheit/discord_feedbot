@@ -211,7 +211,13 @@ def background_check_feed(feed):
     channels = []
     for key in FEED.get('channels').split(','):
         logger.debug(feed+': adding channel '+key)
-        channels.append(discord.Object(id=config['CHANNELS'][key]))
+        channels.append(
+            {
+              'object': discord.Object(id=config['CHANNELS'][key]),
+              'name': key,
+              'id': config['CHANNELS'][key],
+            }
+        )
 
     while not client.is_closed:
         try:
@@ -220,7 +226,7 @@ def background_check_feed(feed):
             if FEED.getint('send_typing',0) >= 1:
                 for channel in channels:
                     try:
-                        yield from client.send_typing(channel)
+                        yield from client.send_typing(channel['object'])
                     except discord.errors.Forbidden:
                         logger.error(feed+':discord.errors.Forbidden')
                         logger.error(sys.exc_info())
@@ -326,7 +332,7 @@ def background_check_feed(feed):
                         message = build_message(FEED,item)
                         for channel in channels:
                             logger.debug(feed+':item:sending message')
-                            yield from client.send_message(channel,message)
+                            yield from client.send_message(channel['object'],message)
                     else:
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
