@@ -227,8 +227,10 @@ def send_message_wrapper(asyncioloop,FEED,channel,client,message):
     # Enforce a tiny minimal delay so that there's always a bit of sleep and yielding
     if delay <= 0:
         delay = 0.01
+    if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
+        yield from client.send_typing(channel['object'])
     logger.debug('scheduling message to '+channel['name']+' with delay of '+str(delay))
-    asyncioloop.create_task(actually_send_message(channel['object'],message,delay))
+    asyncioloop.create_task(actually_send_message(channel['object'],message,delay,FEED))
     logger.debug('message scheduled')
 
 # Simply sleeps for delay and then sends message.
@@ -237,6 +239,8 @@ def actually_send_message(channel_object,message,delay):
     logger.debug('sleeping for '+str(delay)+' seconds before sending message')
     yield from asyncio.sleep(delay)
     logger.debug('actually sending message')
+    if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
+        yield from client.send_typing(channel_object)
     yield from client.send_message(channel_object,message)
     logger.debug('message sent')
 
