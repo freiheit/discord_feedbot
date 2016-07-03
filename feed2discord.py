@@ -222,27 +222,27 @@ def build_message(FEED,item,channel):
 
 # This schedules an 'actually_send_message' coroutine to run
 @asyncio.coroutine
-def send_message_wrapper(asyncioloop,FEED,channel,client,message):
+def send_message_wrapper(asyncioloop,FEED,feed,channel,client,message):
     delay = FEED.getint(channel['name']+'.delay',FEED.getint('delay','0'))
     # Enforce a tiny minimal delay so that there's always a bit of sleep and yielding
     if delay <= 0:
         delay = 0.01
-    logger.debug('scheduling message to '+channel['name']+' with delay of '+str(delay))
-    asyncioloop.create_task(actually_send_message(channel['object'],message,delay,FEED))
-    logger.debug('message scheduled')
+    logger.debug(feed+':'+channel['name']+':scheduling message with delay of '+str(delay))
+    asyncioloop.create_task(actually_send_message(channel,message,delay,FEED,feed))
+    logger.debug(feed+':'+channel['name']+':message scheduled')
 
 # Simply sleeps for delay and then sends message.
 @asyncio.coroutine
-def actually_send_message(channel_object,message,delay,FEED):
-    logger.debug('sleeping for '+str(delay)+' seconds before sending message')
+def actually_send_message(channel,message,delay,FEED,feed):
+    logger.debug(feed+':'+channel['name']+':'+'sleeping for '+str(delay)+' seconds before sending message')
     if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
-        yield from client.send_typing(channel_object)
+        yield from client.send_typing(channel['object'])
     yield from asyncio.sleep(delay)
-    logger.debug('actually sending message')
+    logger.debug(feed+':'+channel['name']+':actually sending message')
     if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
-        yield from client.send_typing(channel_object)
-    yield from client.send_message(channel_object,message)
-    logger.debug('message sent')
+        yield from client.send_typing(channel['object'])
+    yield from client.send_message(channel['object'],message)
+    logger.debug(feed+':'+channel['name']+':message sent')
 
 # The main work loop
 # One of these is run for each feed.
@@ -436,7 +436,7 @@ def background_check_feed(feed,asyncioloop):
                             logger.debug(feed+':item:building message for '+channel['name'])
                             message = build_message(FEED,item,channel)
                             logger.debug(feed+':item:sending message (eventually) to '+channel['name'])
-                            yield from send_message_wrapper(asyncioloop,FEED,channel,client,message)
+                            yield from send_message_wrapper(asyncioloop,FEED,feed,channel,client,message)
                     else:
                         # Logs of debugging info for date handling stuff...
                         logger.info(feed+':too old; skipping')
