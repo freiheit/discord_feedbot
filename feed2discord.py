@@ -287,8 +287,11 @@ def background_check_feed(feed,asyncioloop):
             logger.info(feed+': processing feed')
 
             # If send_typing is on for the feed, send a little "typing ..." whenever a feed is being worked on.
+            # configurable per-room
             if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
                 for channel in channels:
+                    # Since this is first attempt to talk to this channel, 
+                    # be very verbose about failures to talk to channel
                     try:
                         yield from client.send_typing(channel['object'])
                     except discord.errors.Forbidden:
@@ -301,10 +304,16 @@ def background_check_feed(feed,asyncioloop):
             http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
 
             ### Download the actual feed, if changed since last fetch
+            
+            # pull data about history of this *feed* from DB:
             cursor = conn.cursor()
             cursor.execute("select lastmodified,etag from feed_info where feed=? OR url=?",[feed,feed_url])
             data=cursor.fetchone()
-            if data is None:
+
+            # If we've handled this feed before,
+            # and we have etag from last run, add etag to headers.
+            # and if we have a last modified time from last run, add "If-Modified-Since" to headers.
+            if data is None: # never handled this feed before...
                 logger.info(feed+':looks like updated version. saving info')
                 cursor.execute("REPLACE INTO feed_info (feed,url) VALUES (?,?)",[feed,feed_url])
                 conn.commit()
@@ -324,13 +333,22 @@ def background_check_feed(feed,asyncioloop):
                     http_headers['ETag'] = etag
                 else:
                     logger.debug(feed+':no stored ETag')
+
             logger.debug(feed+':sending http request for '+feed_url)
+            # Send actual request. yield from can yield control to another instance.
             http_response = yield from httpclient.request('GET', feed_url, headers=http_headers)
             logger.debug(http_response)
+
+            # Some feeds are smart enough to use that if-modified-since or etag info,
+            # which gives us a 304 status. If that happens, assume no new items,
+            # fall through rest of this and try again later.
             if http_response.status == 304:
                 logger.debug(feed+':data is old; moving on')
                 http_response.close()
                 raise HTTPNotModified()
+            # If we get anything but a 200, that's a problem and we don't have good data,
+            # so give up and try later.
+            # Mostly handled different than 304/not-modified to make logging clearer.
             elif http_response.status != 200:
                 logger.debug(feed+':HTTP error: '+http_response.status)
                 http_response.close()
@@ -339,14 +357,17 @@ def background_check_feed(feed,asyncioloop):
                 logger.debug(feed+':HTTP success')
 
 
+            # pull data out of the http response
             logger.debug(feed+':reading http response')
             http_data = yield from http_response.read()
 
+            # parse the data from the http response with feedparser
             logger.debug(feed+':parsing http data')
             feed_data = feedparser.parse(http_data)
             logger.debug(feed+':done fetching')
 
 
+            # If we got an ETAG back in headers, store that, so we can include on next fetch
             if 'ETAG' in http_response.headers:
                 etag = http_response.headers['ETAG']
                 logger.debug(feed+':saving etag: '+etag)
@@ -356,6 +377,7 @@ def background_check_feed(feed,asyncioloop):
             else:
                 logger.debug(feed+':no etag')
 
+            # If we got a Last-Modified header back, store that, so we can include on next fetch
             if 'LAST-MODIFIED' in http_response.headers:
                 modified = http_response.headers['LAST-MODIFIED']
                 logger.debug(feed+':saving lastmodified: '+modified)
@@ -367,10 +389,13 @@ def background_check_feed(feed,asyncioloop):
 
             http_response.close()
 
+            # Process all of the entries in the feed
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
                 logger.debug(feed+':item:processing this entry')
                 # logger.debug(item) # can be very noisy
+
+                # Pull out the unique id, or just give up on this item.
                 id = ''
                 if 'id' in item:
                     id=item.id
@@ -379,25 +404,41 @@ def background_check_feed(feed,asyncioloop):
                 else:
                     logger.error(feed+':item:no id, skipping')
                     continue
+
+                # Get our best date out, in both raw and parsed form
                 pubDateDict = extract_best_item_date(item)
                 pubDate = pubDateDict['date']
                 pubDate_parsed = pubDateDict['date_parsed']
+
                 logger.debug(feed+':item:id:'+id)
                 logger.debug(feed+':item:checking database history for this item')
+                # Check DB for this item
                 cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
                 data=cursor.fetchone()
+
+                # If we've never seen it before, then actually processing this:
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
+
+                    # Store info about this item, so next time we skip it:
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
+                    
+                    # Doing some crazy date math stuff...
+                    # max_age is mostly so that first run doesn't spew too much stuff into a room,
+                    # but is also a useful safety measure in case a feed suddenly reverts to something ancient
+                    # or other weird problems...
                     if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
-                        logger.debug(feed+':item:building message')
+                      
+                        # Loop over all channels for this particular feed and process appropriately:
                         for channel in channels:
+                            logger.debug(feed+':item:building message for '+channel['name'])
                             message = build_message(FEED,item,channel)
-                            logger.debug(feed+':item:sending message')
+                            logger.debug(feed+':item:sending message (eventually) to '+channel['name'])
                             yield from send_message_wrapper(asyncioloop,FEED,channel,client,message)
                     else:
+                        # Logs of debugging info for date handling stuff...
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
                         logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
@@ -408,46 +449,57 @@ def background_check_feed(feed,asyncioloop):
                         logger.debug(feed+':pubDate_parsed.astimezome(timezone):'+str(pubDate_parsed.astimezone(timezone)))
                         if debug >= 4:
                             logger.debug(item)
+                # seen before, move on:
                 else:
                     logger.debug(feed+':item:'+id+' seen before, skipping')
+        # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.debug(feed+':Headers indicate feed unchanged since last time fetched:')
             logger.debug(sys.exc_info())
+        # Many feeds have random periodic problems that shouldn't cause permanent death:
         except HTTPError:
             logger.warn(feed+':Unexpected HTTP error:')
             logger.warn(sys.exc_info())
             logger.warn(feed+':Assuming error is transient and trying again later')
+        # sqlite3 errors are probably really bad and we should just totally give up on life
         except sqlite3.Error as sqlerr:
             logger.error(feed+':sqlite3 error: ')
             logger.error(sys.exc_info())
             logger.error(sqlerr)
             raise
+        # Ideally we'd remove the specific channel or something...
+        # But I guess just throw an error into the log and try again later...
         except discord.errors.Forbidden:
             logger.error(feed+':discord.errors.Forbidden')
             logger.error(sys.exc_info())
             logger.error(feed+":Perhaps bot isn't allowed in one of the channels for this feed?")
             # raise # or not? hmm...
+        # unknown error: definitely give up and die and move on
         except:
             logger.error(feed+':Unexpected error:')
             # logger.error(sys.exc_info())
             logger.error(traceback.format_exc())
             logger.error(feed+':giving up')
             raise
+        # No matter what goes wrong, wait same time and try again
         finally:
-            # No matter what goes wrong, wait same time and try again
             logger.debug(feed+':sleeping for '+str(rss_refresh_time)+' seconds')
             yield from asyncio.sleep(rss_refresh_time)
 
+# When client is "ready", set gameplayed and log that...
 @client.async_event
 def on_ready():
     logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
     gameplayed=MAIN.get('gameplayed','github/freiheit/discord_rss_bot')
     yield from client.change_status(game=discord.Game(name=gameplayed))
 
+# Set up the tasks for each feed and start the main event loop thing.
+# In this __main__ thing so can be used as library.
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
     try:
+        ### !!! If you use in a library, you really need to do this for loop !!!
         for feed in feeds:
             loop.create_task(background_check_feed(feed,loop))
         if 'login_token' in MAIN:
