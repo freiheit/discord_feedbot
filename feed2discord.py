@@ -220,11 +220,30 @@ def build_message(FEED,item,channel):
         message = message[:1800] + "\n... post truncated ..."
     return message
 
+# This schedules an 'actually_send_message' coroutine to run
+@asyncio.coroutine
+def send_message_wrapper(asyncioloop,FEED,channel,client,message):
+    delay = FEED.getint(channel['name']+'.delay',FEED.getint('delay','0'))
+    # Enforce a tiny minimal delay so that there's always a bit of sleep and yielding
+    if delay <= 0:
+        delay = 0.01
+    logger.debug('scheduling message to '+channel['name']+' with delay of '+str(delay))
+    asyncioloop.create_task(actually_send_message(channel['object'],message,delay))
+    logger.debug('message scheduled')
+
+# Simply sleeps for delay and then sends message.
+@asyncio.coroutine
+def actually_send_message(channel_object,message,delay):
+    logger.debug('sleeping for '+str(delay)+' seconds before sending message')
+    yield from asyncio.sleep(delay)
+    logger.debug('actually sending message')
+    yield from client.send_message(channel_object,message)
+    logger.debug('message sent')
 
 # The main work loop
 # One of these is run for each feed.
 @asyncio.coroutine
-def background_check_feed(feed):
+def background_check_feed(feed,asyncioloop):
     global timezone
     logger.info(feed+': Starting up background_check_feed')
     yield from client.wait_until_ready()
@@ -360,7 +379,7 @@ def background_check_feed(feed):
                         for channel in channels:
                             message = build_message(FEED,item,channel)
                             logger.debug(feed+':item:sending message')
-                            yield from client.send_message(channel['object'],message)
+                            yield from send_message_wrapper(asyncioloop,FEED,channel,client,message)
                     else:
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
@@ -413,7 +432,7 @@ if __name__ == "__main__":
 
     try:
         for feed in feeds:
-            loop.create_task(background_check_feed(feed))
+            loop.create_task(background_check_feed(feed,loop))
         if 'login_token' in MAIN:
             loop.run_until_complete(client.login(MAIN.get('login_token')))
         else:
