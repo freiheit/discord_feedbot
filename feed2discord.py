@@ -283,7 +283,7 @@ def background_check_feed(feed,asyncioloop):
             logger.info(feed+': processing feed')
 
             # If send_typing is on for the feed, send a little "typing ..." whenever a feed is being worked on.
-            if FEED.getint('send_typing',0) >= 1:
+            if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
                 for channel in channels:
                     try:
                         yield from client.send_typing(channel['object'])
