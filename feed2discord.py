@@ -47,10 +47,8 @@ else:
 
 warnings.resetwarnings()
 
-# Because windows hates you
-#if hasattr(time, 'tzset'):
-#  os.environ['TZ'] = 'UTC'
-#  time.tzset()
+# Because windows hates you...
+# More complicated way to set the timezone stuff, but works on windows and unix.
 tzstr = MAIN.get('timezone', 'utc')
 try:
     timezone = pytz.timezone(tzstr)
@@ -83,7 +81,7 @@ def extract_best_item_date(item):
     global timezone
     result = {}
 
-    #Look for something vaguely timestamp-ish.
+    # Look for something vaguely timestamp-ish.
     for date_field in DATE_FIELDS:
         if date_field in item and len(item[date_field]) > 0:
             try:
@@ -103,7 +101,7 @@ def extract_best_item_date(item):
             except Exception as e:
                 pass
 
-    #No potentials found, default to current timezone's "now"
+    # No potentials found, default to current timezone's "now"
     curtime = timezone.localize(datetime.now())
     result['date'] = curtime.strftime("%a %b %d %H:%M:%S %Z %Y")
     result['date_parsed'] = curtime
