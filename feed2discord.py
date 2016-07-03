@@ -173,10 +173,11 @@ def process_field(field,item,FEED):
         else:
             return ''
 
-def build_message(FEED,item):
+def build_message(FEED,item,channel):
     message=''
+    fieldlist = FEED.get(channel['name']+'.fields',FEED.get('fields','id,description')).split(',')
     # Extract fields in order
-    for field in FEED.get('fields','id,description').split(','):
+    for field in fieldlist:
         logger.debug(feed+':item:build_message:'+field+':added to message')
         message+=process_field(field,item,FEED)+"\n"
 
@@ -329,8 +330,8 @@ def background_check_feed(feed):
                     if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                         logger.debug(feed+':item:building message')
-                        message = build_message(FEED,item)
                         for channel in channels:
+                            message = build_message(FEED,item,channel)
                             logger.debug(feed+':item:sending message')
                             yield from client.send_message(channel['object'],message)
                     else:
