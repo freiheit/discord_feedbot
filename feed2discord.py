@@ -233,7 +233,7 @@ def send_message_wrapper(asyncioloop,FEED,channel,client,message):
 
 # Simply sleeps for delay and then sends message.
 @asyncio.coroutine
-def actually_send_message(channel_object,message,delay):
+def actually_send_message(channel_object,message,delay,FEED):
     logger.debug('sleeping for '+str(delay)+' seconds before sending message')
     if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
         yield from client.send_typing(channel_object)
