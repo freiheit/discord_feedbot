@@ -7,19 +7,24 @@
 import configparser
 import os, sys
 
+# Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
 for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.local.ini','feed2discord.ini']:
   if os.path.isfile(inifile):
     config.read(inifile)
     break # First config file wins
 
+# Make main config area global, since used everywhere/anywhere
 MAIN = config['MAIN']
 
+# set global debug verbosity level.
 debug = MAIN.getint('debug',0)
 
+# If debug is on, turn on the asyncio debug
 if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
 
+# import the rest of my modules
 import discord, asyncio
 import feedparser, aiohttp
 import sqlite3
@@ -31,6 +36,7 @@ import html2text
 import logging, warnings, traceback
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
+# Tell logging module about my debug level
 if debug >= 3:
     logging.basicConfig(level=logging.DEBUG)
 elif debug >= 2:
@@ -38,8 +44,10 @@ elif debug >= 2:
 else:
     logging.basicConfig(level=logging.WARNING)
 
+# Create global logger object
 logger = logging.getLogger(__name__)
 
+# And finish telling logger module about my debug level
 if debug >= 1:
     logger.setLevel(logging.DEBUG)
 else:
@@ -57,25 +65,33 @@ except Exception as e:
 
 db_path = MAIN.get('db_path','feed2discord.db')
 
+# Parse out total list of feeds
 feeds = config.sections()
+# these are non-feed sections:
 feeds.remove('MAIN')
 feeds.remove('CHANNELS')
 
 # Crazy workaround for a bug with parsing that doesn't apply on all pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
+# set up a single http client for everything to use.
 httpclient = aiohttp.ClientSession()
 
+# global database thing
 conn = sqlite3.connect(db_path)
 
+# If our two tables don't exist, create them.
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
               (id text PRIMARY KEY,published text,title text,url text,reposted text)''')
 
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
               (feed text PRIMARY KEY,url text UNIQUE,lastmodified text,etag text)''')
 
+# global discord client object
 client = discord.Client()
 
+# This function loops through all the common date fields for an item in a feed, and
+# extracts the "best" one. Falls back to "now" if nothing is found.
 DATE_FIELDS = ('published','pubDate','date','created','updated')
 def extract_best_item_date(item):
     global timezone
@@ -110,6 +126,10 @@ def extract_best_item_date(item):
     return result
 
 
+# This looks at the field from the config, and returns the processed string
+# naked item in fields: return that field from the feed item
+# *, **, _, ~, `, ```: markup the field and return it from the feed item
+# " around the field: string literal
 def process_field(field,item,FEED):
     logger.debug(feed+':process_field:'+field+': started')
 
@@ -173,6 +193,11 @@ def process_field(field,item,FEED):
         else:
             return ''
 
+# This builds a message.
+# Pulls the fields (trying for channel_name.fields in FEED, then fields in FEED, then fields in DEFAULT, then "id,description".
+# fields in config is comma separate string, so pull into array.
+# then just adds things, separated by newlines.
+# truncates if too long.
 def build_message(FEED,item,channel):
     message=''
     fieldlist = FEED.get(channel['name']+'.fields',FEED.get('fields','id,description')).split(',')
@@ -196,6 +221,8 @@ def build_message(FEED,item,channel):
     return message
 
 
+# The main work loop
+# One of these is run for each feed.
 @asyncio.coroutine
 def background_check_feed(feed):
     global timezone
