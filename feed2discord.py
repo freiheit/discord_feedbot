@@ -344,6 +344,10 @@ def background_check_feed(feed,asyncioloop):
                 logger.debug(feed+':data is old; moving on')
                 http_response.close()
                 raise HTTPNotModified()
+            elif http_response.status is None:
+                logger.error(feed+':HTTP response code is NONE')
+                http_response.close()
+                raise HTTPError()
             # If we get anything but a 200, that's a problem and we don't have good data,
             # so give up and try later.
             # Mostly handled different than 304/not-modified to make logging clearer.
