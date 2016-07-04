@@ -189,7 +189,10 @@ def process_field(field,item,FEED):
             htmlfixer.body_width = 1000
             htmlfixer.unicode_snob = True
             htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
-            return htmlfixer.handle(item[field])
+            markdownfield = htmlfixer.handle(item[field])
+            # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
+            markdownfield = re.sub('<[^<]+?>', '', markdownfield)
+            return markdownfield
         else:
             return ''
 
@@ -205,9 +208,6 @@ def build_message(FEED,item,channel):
     for field in fieldlist:
         logger.debug(feed+':item:build_message:'+field+':added to message')
         message+=process_field(field,item,FEED)+"\n"
-
-    # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
-    message = re.sub('<[^<]+?>', '', message)
 
     # Naked spaces are terrible:
     message = re.sub(' +\n','\n',message)
@@ -240,6 +240,7 @@ def actually_send_message(channel,message,delay,FEED,feed):
         yield from client.send_typing(channel['object'])
     yield from client.send_message(channel['object'],message)
     logger.debug(feed+':'+channel['name']+':message sent')
+    logger.debug(message)
 
 # The main work loop
 # One of these is run for each feed.
