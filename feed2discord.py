@@ -223,10 +223,7 @@ def build_message(FEED,item,channel):
 # This schedules an 'actually_send_message' coroutine to run
 @asyncio.coroutine
 def send_message_wrapper(asyncioloop,FEED,feed,channel,client,message):
-    delay = FEED.getint(channel['name']+'.delay',FEED.getint('delay','0'))
-    # Enforce a tiny minimal delay so that there's always a bit of sleep and yielding
-    if delay <= 0:
-        delay = 0.01
+    delay = FEED.getint(channel['name']+'.delay',FEED.getint('delay','0.01'))
     logger.debug(feed+':'+channel['name']+':scheduling message with delay of '+str(delay))
     asyncioloop.create_task(actually_send_message(channel,message,delay,FEED,feed))
     logger.debug(feed+':'+channel['name']+':message scheduled')
