@@ -492,6 +492,12 @@ def on_ready():
     logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
     gameplayed=MAIN.get('gameplayed','github/freiheit/discord_rss_bot')
     yield from client.change_status(game=discord.Game(name=gameplayed))
+    avatar_file_name = MAIN.get('avatarfile','avatar.png')
+    avatar_file = open(avatar_file_name,'rb')
+    avatar = avatar_file.read()
+    avatar_file.close()
+    yield from client.edit_profile(avatar=avatar)
+
 
 # Set up the tasks for each feed and start the main event loop thing.
 # In this __main__ thing so can be used as library.
