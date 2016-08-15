@@ -1,4 +1,4 @@
-discord.py==0.9.2
+discord.py>=0.10.0
 feedparser==5.2.1
 html2text==2016.5.29
 python-dateutil==2.5.3
