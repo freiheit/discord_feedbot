@@ -1,5 +1,7 @@
 # [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
 
+![Feed Bot](avatar-angry-small.png)
+
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
@@ -69,13 +71,15 @@ Double-check your timezone settings! If the timezone isn't right, and max_age is
 brand-new posts to look too old to post.
 
 If it all looks right, try turning on debug in .ini. Then look for output like this:
-    DEBUG:__main__:reddit:now:1467657389.0983927
-    DEBUG:__main__:reddit:now:gmtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=18, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=0)
-    DEBUG:__main__:reddit:now:localtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=11, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=1)
-    DEBUG:__main__:reddit:timezone.localize(datetime.now()):2016-07-04 11:36:29.098784-07:00
-    DEBUG:__main__:reddit:pubDate:Mon Jul 04 14:04:44 UTC 2016
-    DEBUG:__main__:reddit:pubDate_parsed:2016-07-04 14:04:44+00:00
-    DEBUG:__main__:reddit:pubDate_parsed.astimezome(timezone):2016-07-04 07:04:44-07:00
+```
+DEBUG:__main__:reddit:now:1467657389.0983927
+DEBUG:__main__:reddit:now:gmtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=18, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=0)
+DEBUG:__main__:reddit:now:localtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=11, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=1)
+DEBUG:__main__:reddit:timezone.localize(datetime.now()):2016-07-04 11:36:29.098784-07:00
+DEBUG:__main__:reddit:pubDate:Mon Jul 04 14:04:44 UTC 2016
+DEBUG:__main__:reddit:pubDate_parsed:2016-07-04 14:04:44+00:00
+DEBUG:__main__:reddit:pubDate_parsed.astimezome(timezone):2016-07-04 07:04:44-07:00
+```
 
 If `now:localtime` doesn't look like your current time and/or `now:gmtime` doesn't look like current UTC time, that's your problem. `now:gmtime` being off indicates your system clock is wrong. If `now:gmtime` is right, but `now:localtime` is not, you probably have the timezone set wrong in your .ini file.
 
