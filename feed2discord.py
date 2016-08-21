@@ -430,10 +430,11 @@ def on_ready():
 	logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 	gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_rss_bot")
 	yield from client.change_status(game=discord.Game(name=gameplayed))
-	avatar_file_name = MAIN.get("avatarfile", "avatar.png")
-	with open(avatar_file_name, "rb") as f:
-		avatar = f.read()
-	yield from client.edit_profile(avatar=avatar)
+	avatar_file_name = MAIN.get("avatarfile")
+	if avatar_file_name:
+		with open(avatar_file_name, "rb") as f:
+			avatar = f.read()
+		yield from client.edit_profile(avatar=avatar)
 
 
 def main():
