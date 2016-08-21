@@ -402,6 +402,8 @@ def background_check_feed(feed, asyncioloop):
 					# stuff into a room, but is also a useful safety measure in
 					# case a feed suddenly reverts to something ancient or other
 					# weird problems...
+					if pubDate_parsed.tzinfo is None:
+						pubDate_parsed = pubDate_parsed.replace(tzinfo=timezone)
 					astz = pubDate_parsed.astimezone(timezone)
 					now_tz = timezone.localize(datetime.now())
 					if abs(astz - now_tz).seconds < max_age:
