@@ -5,7 +5,20 @@
 
 # We do the config stuff very first, so that we can pull debug from there
 import configparser
-import os, sys
+import logging
+import os
+import re
+import sqlite3
+import sys
+import time
+import traceback
+import warnings
+import discord
+import feedparser
+import pytz
+from datetime import datetime
+from dateutil.parser import parse as parse_datetime
+from html2text import HTML2Text
 
 # Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
@@ -25,15 +38,8 @@ if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
 
 # import the rest of my modules
-import discord, asyncio
-import feedparser, aiohttp
-import sqlite3
-import re
-import pytz, time
-from datetime import datetime
-import dateutil.parser as dup
-import html2text
-import logging, warnings, traceback
+import aiohttp
+import asyncio
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
 # Tell logging module about my debug level
@@ -101,7 +107,7 @@ def extract_best_item_date(item):
     for date_field in DATE_FIELDS:
         if date_field in item and len(item[date_field]) > 0:
             try:
-                date_obj = dup.parse(item[date_field])
+                date_obj = parse_datetime(item[date_field])
 
                 if date_obj.tzinfo is None:
                     timezone.localize(date_obj)
@@ -181,7 +187,7 @@ def process_field(field,item,FEED):
         logger.debug(feed+':process_field:'+field+':isPlain')
         # Otherwise, just return the plain field:
         if field in item:
-            htmlfixer = html2text.HTML2Text()
+            htmlfixer = HTML2Text()
             logger.debug(htmlfixer)
             htmlfixer.ignore_links = True
             htmlfixer.ignore_images = True
@@ -263,7 +269,7 @@ def background_check_feed(feed,asyncioloop):
     feed_url = FEED.get('feed_url')
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
     max_age = FEED.getint('max_age',86400)
-    
+
     # loop through all the channels this feed is configured to send to
     channels = []
     for key in FEED.get('channels').split(','):
@@ -288,7 +294,7 @@ def background_check_feed(feed,asyncioloop):
             # configurable per-room
             if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
                 for channel in channels:
-                    # Since this is first attempt to talk to this channel, 
+                    # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
                     try:
                         yield from client.send_typing(channel['object'])
@@ -302,7 +308,7 @@ def background_check_feed(feed,asyncioloop):
             http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
 
             ### Download the actual feed, if changed since last fetch
-            
+
             # pull data about history of this *feed* from DB:
             cursor = conn.cursor()
             cursor.execute("select lastmodified,etag from feed_info where feed=? OR url=?",[feed,feed_url])
@@ -423,14 +429,14 @@ def background_check_feed(feed,asyncioloop):
                     # Store info about this item, so next time we skip it:
                     cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
                     conn.commit()
-                    
+
                     # Doing some crazy date math stuff...
                     # max_age is mostly so that first run doesn't spew too much stuff into a room,
                     # but is also a useful safety measure in case a feed suddenly reverts to something ancient
                     # or other weird problems...
                     if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
-                      
+
                         # Loop over all channels for this particular feed and process appropriately:
                         for channel in channels:
                             logger.debug(feed+':item:building message for '+channel['name'])
