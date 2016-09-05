@@ -428,7 +428,9 @@ def background_check_feed(feed,asyncioloop):
                     # max_age is mostly so that first run doesn't spew too much stuff into a room,
                     # but is also a useful safety measure in case a feed suddenly reverts to something ancient
                     # or other weird problems...
-                    if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
+                    time_since_published = timezone.localize(datetime.now()) - pubDate_parsed.astimezone(timezone)
+                    
+                    if time_since_published.total_seconds() < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                       
                         # Loop over all channels for this particular feed and process appropriately:
