@@ -504,25 +504,24 @@ def on_ready():
 # Set up the tasks for each feed and start the main event loop thing.
 # In this __main__ thing so can be used as library.
 def main():
-	loop = asyncio.get_event_loop()
+    loop = asyncio.get_event_loop()
 
-	try:
-		for feed in feeds:
-			loop.create_task(background_check_feed(feed, loop))
-		if "login_token" in MAIN:
-			loop.run_until_complete(client.login(MAIN.get("login_token")))
-		else:
-			loop.run_until_complete(
-				client.login(MAIN.get("login_email"), MAIN.get("login_password"))
-			)
-		loop.run_until_complete(client.connect())
-	except Exception:
-		loop.run_until_complete(client.close())
-	finally:
-		loop.close()
+    try:
+        for feed in feeds:
+            loop.create_task(background_check_feed(feed, loop))
+        if "login_token" in MAIN:
+            loop.run_until_complete(client.login(MAIN.get("login_token")))
+        else:
+            loop.run_until_complete(
+                client.login(MAIN.get("login_email"), MAIN.get("login_password"))
+            )
+        loop.run_until_complete(client.connect())
+    except Exception:
+        loop.run_until_complete(client.close())
+    finally:
+        loop.close()
 
 
->>>>>>> f6a48dd... Make avatar optional
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
