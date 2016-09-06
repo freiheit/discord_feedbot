@@ -1,0 +1,36 @@
+# Use this file to set feedbot up as a service that runs at boot time.
+# 
+# 1. Add a "feedbot" user. `useradd feedbot`
+# 2. Switch to that user. `sudo su - feedbot`
+# 3. Git clone the repo. `git clone https://github.com/freiheit/discord_rss_bot.git`
+# 4. Configure appropriately
+# 5. As root (or using sudo), copy this feedbot.service file to where the rest 
+#    of your systemd service files live. Probably one of these locations:
+#    * /etc/systemd/system/
+#    * /lib/systemd/system/
+#    * /usr/lib/systemd/system/
+#    * /etc/systemd/system/multi-user.target.wants/
+# 6. Run `sudo systemctl enable feedbot` to enable running at boot.
+# 7. Run `sudo systemctl start feedbot` to start bot immediately.
+# 8. Optionally, run `systemctl status feedbot` to check on it.
+# 9. Optionally, use `journalctl --follow -u feedbot.service` to watch its output.
+#
+# You can have it run under your regular user account, just change the
+# User=, Group= and home directory items.
+
+[Unit]
+Description=Discord Feed Bot
+After=network.target
+
+[Service]
+User=feedbot
+Group=feedbot
+Type=simple
+ExecStart=/usr/bin/python3 /home/feedbot/discord_rss_bot/feed2discord.py
+WorkingDirectory=/home/feedbot/discord_rss_bot
+TimeoutStopSec=20
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# I find that sometimes certain errors (like network connectivity problems)
+# cause specific feeds to die.  A nightly restart works around that.  Would
+# be better to fix some of the exception handling code, but I can't seem to
+# figure that one out...
+#
+# Just drop this file into /etc/cron.daily/ after setting up to run as a
+# service.
+
+systemctl restart feedbot.service

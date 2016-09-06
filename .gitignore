@@ -69,5 +69,5 @@ DEADJOE
 *.swo
 
 # sqlite DB file
-feed2discord.db
+*.db
 feed2discord.local.ini
