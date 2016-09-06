@@ -444,7 +444,9 @@ def background_check_feed(feed,asyncioloop):
                     # max_age is mostly so that first run doesn't spew too much stuff into a room,
                     # but is also a useful safety measure in case a feed suddenly reverts to something ancient
                     # or other weird problems...
-                    if abs(pubDate_parsed.astimezone(timezone) - timezone.localize(datetime.now())).seconds < max_age:
+                    time_since_published = timezone.localize(datetime.now()) - pubDate_parsed.astimezone(timezone)
+                    
+                    if time_since_published.total_seconds() < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                       
                         # Loop over all channels for this particular feed and process appropriately:
@@ -471,6 +473,7 @@ def background_check_feed(feed,asyncioloop):
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
                         logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
+
                         logger.debug(feed+':now:localtime:'+str(time.localtime()))
                         logger.debug(feed+':timezone.localize(datetime.now()):'+str(timezone.localize(datetime.now())))
                         logger.debug(feed+':pubDate:'+str(pubDate))
@@ -518,18 +521,37 @@ def background_check_feed(feed,asyncioloop):
 # When client is "ready", set gameplayed and log that...
 @client.async_event
 def on_ready():
-    logger.info('Logged in as '+client.user.name+'('+client.user.id+')')
-    gameplayed=MAIN.get('gameplayed','github/freiheit/discord_rss_bot')
+    logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
+    gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_rss_bot")
     yield from client.change_status(game=discord.Game(name=gameplayed))
-    avatar_file_name = MAIN.get('avatarfile','avatar.png')
-    avatar_file = open(avatar_file_name,'rb')
-    avatar = avatar_file.read()
-    avatar_file.close()
-    yield from client.edit_profile(avatar=avatar)
+    avatar_file_name = MAIN.get("avatarfile")
+    if avatar_file_name:
+        with open(avatar_file_name, "rb") as f:
+            avatar = f.read()
+        yield from client.edit_profile(avatar=avatar)
 
 
 # Set up the tasks for each feed and start the main event loop thing.
 # In this __main__ thing so can be used as library.
+def main():
+    loop = asyncio.get_event_loop()
+
+    try:
+        for feed in feeds:
+            loop.create_task(background_check_feed(feed, loop))
+        if "login_token" in MAIN:
+            loop.run_until_complete(client.login(MAIN.get("login_token")))
+        else:
+            loop.run_until_complete(
+                client.login(MAIN.get("login_email"), MAIN.get("login_password"))
+            )
+        loop.run_until_complete(client.connect())
+    except Exception:
+        loop.run_until_complete(client.close())
+    finally:
+        loop.close()
+
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 

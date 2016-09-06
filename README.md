@@ -53,6 +53,9 @@ it out, please give me a pull request.
 - [html2text](https://pypi.python.org/pypi/html2text)
 
 ## Frequently Asked Questions
+### Can I have a feed ping a specific person or role?
+Yes. Add a string with their ping text to the fields.
+
 ### How do I figure out my timezone?
 On Windows, check settings/time for the timezone or run "tzutil /g".
 
