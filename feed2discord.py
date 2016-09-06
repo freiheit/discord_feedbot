@@ -212,23 +212,12 @@ def process_field(field,item,FEED,channel):
         else:
             return ''
 
-<<<<<<< HEAD
-def check_item_filter(FEED,item):
-    if 'filter_field' in item:
-      if 'filter_exclude' in item:
-      
-    else:
-      return True
-
-def build_message(FEED,item):
-=======
 # This builds a message.
 # Pulls the fields (trying for channel_name.fields in FEED, then fields in FEED, then fields in DEFAULT, then "id,description".
 # fields in config is comma separate string, so pull into array.
 # then just adds things, separated by newlines.
 # truncates if too long.
 def build_message(FEED,item,channel):
->>>>>>> master
     message=''
     fieldlist = FEED.get(channel['name']+'.fields',FEED.get('fields','id,description')).split(',')
     # Extract fields in order
