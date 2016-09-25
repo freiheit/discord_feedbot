@@ -144,7 +144,7 @@ def process_field(field,item,FEED):
 
     logger.debug(feed+':process_field:'+field+': checking against regexes')
     stringmatch = re.match('^"(.+?)"$',field)
-    highlightmatch = re.match('^([*_~]+)(.+?)([*_~]+)$',field)
+    highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$',field)
     bigcodematch = re.match('^```(.+)$',field)
     codematch = re.match('^`(.+)`$',field)
     if stringmatch is not None:
