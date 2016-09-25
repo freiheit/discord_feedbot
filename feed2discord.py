@@ -225,7 +225,7 @@ def process_field(field,item,FEED):
                 htmlfixer.ignore_emphasis = False
                 htmlfixer.body_width = 1000
                 htmlfixer.unicode_snob = True
-                htmlfixer.ul_item_mark = '-' # Default of "*" likely 
+                htmlfixer.ul_item_mark = '-' # Default of "*" likely
                                              # to bold things, etc...
                 markdownfield = htmlfixer.handle(item[field])
 
@@ -240,7 +240,7 @@ def process_field(field,item,FEED):
 # This builds a message.
 
 # Pulls the fields (trying for channel_name.fields in FEED, then fields in
-# FEED, then fields in DEFAULT, then "id,description". 
+# FEED, then fields in DEFAULT, then "id,description".
 # fields in config is comma separate string, so pull into array.
 # then just adds things, separated by newlines.
 # truncates if too long.
@@ -314,7 +314,7 @@ def background_check_feed(feed,asyncioloop):
     feed_url = FEED.get('feed_url')
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
     max_age = FEED.getint('max_age',86400)
-    
+
     # loop through all the channels this feed is configured to send to
     channels = []
     for key in FEED.get('channels').split(','):
@@ -341,7 +341,7 @@ def background_check_feed(feed,asyncioloop):
                            feed+'.send_typing',
                            FEED.getint('send_typing',0)) >= 1:
                 for channel in channels:
-                    # Since this is first attempt to talk to this channel, 
+                    # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
                     try:
                         yield from client.send_typing(channel['object'])
@@ -358,7 +358,7 @@ def background_check_feed(feed,asyncioloop):
                                                   'feed2discord/1.0')
 
             ### Download the actual feed, if changed since last fetch
-            
+
             # pull data about history of this *feed* from DB:
             cursor = conn.cursor()
             cursor.execute(
@@ -368,7 +368,7 @@ def background_check_feed(feed,asyncioloop):
 
             # If we've handled this feed before,
             # and we have etag from last run, add etag to headers.
-            # and if we have a last modified time from last run, 
+            # and if we have a last modified time from last run,
             # add "If-Modified-Since" to headers.
             if data is None: # never handled this feed before...
                 logger.info(feed+':looks like updated version. saving info')
@@ -399,7 +399,7 @@ def background_check_feed(feed,asyncioloop):
             logger.debug(feed+':sending http request for '+feed_url)
             # Send actual request.  yield from can yield control to another
             # instance.
-            http_response = yield from httpclient.request('GET', 
+            http_response = yield from httpclient.request('GET',
                                                           feed_url,
                                                           headers=http_headers)
             logger.debug(http_response)
@@ -505,17 +505,17 @@ def background_check_feed(feed,asyncioloop):
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
                         [id,pubDate])
                     conn.commit()
-                    
+
                     # Doing some crazy date math stuff...
                     # max_age is mostly so that first run doesn't spew too
                     # much stuff into a room, but is also a useful safety
                     # measure in case a feed suddenly reverts to something
                     # ancient or other weird problems...
                     time_since_published = timezone.localize(datetime.now()) - pubDate_parsed.astimezone(timezone)
-                    
+
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
-                      
+
                         # Loop over all channels for this particular feed
                         # and process appropriately:
                         for channel in channels:
