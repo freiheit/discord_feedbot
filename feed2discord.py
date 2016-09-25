@@ -3,16 +3,30 @@
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
-# We do the config stuff very first, so that we can pull debug from there
+# We do the config stuff very first, so that we can pull debug from
+# there
 import configparser
 import os, sys
+import feedparser, aiohttp
+import sqlite3
+import re
+import pytz, time
+import dateutil.parser as dup
+import html2text
+import logging, warnings, traceback
+from aiohttp.web_exceptions import HTTPError, HTTPNotModified
+from datetime import datetime
+from urllib.parse import urljoin
 
 # Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
-for inifile in [os.path.expanduser('~')+'/.feed2discord.ini','feed2discord.local.ini','feed2discord.ini']:
-  if os.path.isfile(inifile):
-    config.read(inifile)
-    break # First config file wins
+for inifile in [
+                os.path.expanduser('~')+'/.feed2discord.ini',
+                'feed2discord.local.ini',
+                'feed2discord.ini']:
+    if os.path.isfile(inifile):
+       config.read(inifile)
+       break # First config file wins
 
 # Make main config area global, since used everywhere/anywhere
 MAIN = config['MAIN']
@@ -22,20 +36,11 @@ debug = MAIN.getint('debug',0)
 
 # If debug is on, turn on the asyncio debug
 if debug:
-    os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before asyncio is pulled in
+    os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before
+                                           # asyncio is pulled in
 
-# import the rest of my modules
+# import that last module...
 import discord, asyncio
-import feedparser, aiohttp
-import sqlite3
-import re
-import pytz, time
-from datetime import datetime
-from urllib.parse import urljoin
-import dateutil.parser as dup
-import html2text
-import logging, warnings, traceback
-from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 
 # Tell logging module about my debug level
 if debug >= 3:
@@ -57,7 +62,8 @@ else:
 warnings.resetwarnings()
 
 # Because windows hates you...
-# More complicated way to set the timezone stuff, but works on windows and unix.
+# More complicated way to set the timezone stuff, but works on windows
+# and unix.
 tzstr = MAIN.get('timezone', 'utc')
 try:
     timezone = pytz.timezone(tzstr)
@@ -72,7 +78,8 @@ feeds = config.sections()
 feeds.remove('MAIN')
 feeds.remove('CHANNELS')
 
-# Crazy workaround for a bug with parsing that doesn't apply on all pythons:
+# Crazy workaround for a bug with parsing that doesn't apply on all
+# pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
 # set up a single http client for everything to use.
@@ -83,16 +90,23 @@ conn = sqlite3.connect(db_path)
 
 # If our two tables don't exist, create them.
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
-              (id text PRIMARY KEY,published text,title text,url text,reposted text)''')
+              (id text PRIMARY KEY,
+               published text,
+               title text,
+               url text,reposted text)''')
 
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
-              (feed text PRIMARY KEY,url text UNIQUE,lastmodified text,etag text)''')
+              (feed text PRIMARY KEY,
+              url text UNIQUE,
+              lastmodified text,
+              etag text)''')
 
 # global discord client object
 client = discord.Client()
 
-# This function loops through all the common date fields for an item in a feed, and
-# extracts the "best" one. Falls back to "now" if nothing is found.
+# This function loops through all the common date fields for an item in
+# a feed, and extracts the "best" one.  Falls back to "now" if nothing
+# is found.
 DATE_FIELDS = ('published','pubDate','date','created','updated')
 def extract_best_item_date(item):
     global timezone
@@ -110,7 +124,8 @@ def extract_best_item_date(item):
                 #result['date'] = item[date_field]
                 #result['date_parsed'] = item[date_field+"_parsed"]
 
-                #Standardize stored time based on the timezone in the ini file
+                # Standardize stored time based on the timezone in the
+                # ini file
                 result['date'] = date_obj.strftime("%a %b %d %H:%M:%S %Z %Y")
                 result['date_parsed'] = date_obj
 
@@ -153,7 +168,9 @@ def process_field(field,item,FEED):
         return stringmatch.group(1) # string from config
     elif highlightmatch is not None:
         logger.debug(feed+':process_field:'+field+':isHighlight')
-        # If there's any markdown on the field, return field with that markup on it:
+
+        # If there's any markdown on the field, return field with that
+        # markup on it:
         field = highlightmatch.group(2)
         if field in item:
             if field == 'link':
@@ -174,7 +191,9 @@ def process_field(field,item,FEED):
             return ''
     elif codematch is not None:
         logger.debug(feed+':process_field:'+field+':isCode')
-        # Since code chunk can't have other highlights, also do them separately:
+
+        # Since code chunk can't have other highlights, also do them
+        # separately:
         field = codematch.group(1)
         if field in item:
             return '`'+item[field]+'`'
@@ -199,9 +218,12 @@ def process_field(field,item,FEED):
                 htmlfixer.ignore_emphasis = False
                 htmlfixer.body_width = 1000
                 htmlfixer.unicode_snob = True
-                htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
+                htmlfixer.ul_item_mark = '-' # Default of "*" likely 
+                                             # to bold things, etc...
                 markdownfield = htmlfixer.handle(item[field])
-                # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
+
+                # Try to strip any remaining HTML out.  Not "safe", but
+                # simple and should catch most stuff:
                 markdownfield = re.sub('<[^<]+?>', '', markdownfield)
                 return markdownfield
         else:
@@ -209,13 +231,19 @@ def process_field(field,item,FEED):
             return ''
 
 # This builds a message.
-# Pulls the fields (trying for channel_name.fields in FEED, then fields in FEED, then fields in DEFAULT, then "id,description".
+
+# Pulls the fields (trying for channel_name.fields in FEED, then fields in
+# FEED, then fields in DEFAULT, then "id,description". 
 # fields in config is comma separate string, so pull into array.
 # then just adds things, separated by newlines.
 # truncates if too long.
+
 def build_message(FEED,item,channel):
     message=''
-    fieldlist = FEED.get(channel['name']+'.fields',FEED.get('fields','id,description')).split(',')
+    fieldlist = FEED.get(
+                         channel['name']+'.fields',
+                         FEED.get('fields','id,description')
+                        ).split(',')
     # Extract fields in order
     for field in fieldlist:
         logger.debug(feed+':item:build_message:'+field+':added to message')
@@ -236,17 +264,21 @@ def build_message(FEED,item,channel):
 @asyncio.coroutine
 def send_message_wrapper(asyncioloop,FEED,feed,channel,client,message):
     delay = FEED.getint(channel['name']+'.delay',FEED.getint('delay',0))
-    logger.debug(feed+':'+channel['name']+':scheduling message with delay of '+str(delay))
-    asyncioloop.create_task(actually_send_message(channel,message,delay,FEED,feed))
+    logger.debug(feed+':'+channel['name']+
+                 ':scheduling message with delay of '+str(delay))
+    asyncioloop.create_task(
+        actually_send_message(channel,message,delay,FEED,feed))
     logger.debug(feed+':'+channel['name']+':message scheduled')
 
 # Simply sleeps for delay and then sends message.
 @asyncio.coroutine
 def actually_send_message(channel,message,delay,FEED,feed):
-    logger.debug(feed+':'+channel['name']+':'+'sleeping for '+str(delay)+' seconds before sending message')
+    logger.debug(feed+':'+channel['name']+':'+'sleeping for '+
+                 str(delay)+' seconds before sending message')
     if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
         yield from client.send_typing(channel['object'])
     yield from asyncio.sleep(delay)
+
     logger.debug(feed+':'+channel['name']+':actually sending message')
     if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
         yield from client.send_typing(channel['object'])
@@ -296,9 +328,11 @@ def background_check_feed(feed,asyncioloop):
         try:
             logger.info(feed+': processing feed')
 
-            # If send_typing is on for the feed, send a little "typing ..." whenever a feed is being worked on.
-            # configurable per-room
-            if FEED.getint(feed+'.send_typing',FEED.getint('send_typing',0)) >= 1:
+            # If send_typing is on for the feed, send a little "typing ..."
+            # whenever a feed is being worked on.  configurable per-room
+            if FEED.getint(
+                           feed+'.send_typing',
+                           FEED.getint('send_typing',0)) >= 1:
                 for channel in channels:
                     # Since this is first attempt to talk to this channel, 
                     # be very verbose about failures to talk to channel
@@ -307,34 +341,45 @@ def background_check_feed(feed,asyncioloop):
                     except discord.errors.Forbidden:
                         logger.error(feed+':discord.errors.Forbidden')
                         logger.error(sys.exc_info())
-                        logger.error(feed+":Perhaps bot isn't allowed in one this channel?")
+                        logger.error(
+                            feed+
+                            ":Perhaps bot isn't allowed in this channel?")
                         logger.error(channel)
 
             http_headers = {}
-            http_headers['User-Agent'] = MAIN.get('UserAgent','feed2discord/1.0')
+            http_headers['User-Agent'] = MAIN.get('UserAgent',
+                                                  'feed2discord/1.0')
 
             ### Download the actual feed, if changed since last fetch
             
             # pull data about history of this *feed* from DB:
             cursor = conn.cursor()
-            cursor.execute("select lastmodified,etag from feed_info where feed=? OR url=?",[feed,feed_url])
+            cursor.execute(
+                "select lastmodified,etag from feed_info where feed=? OR url=?",
+                [feed,feed_url])
             data=cursor.fetchone()
 
             # If we've handled this feed before,
             # and we have etag from last run, add etag to headers.
-            # and if we have a last modified time from last run, add "If-Modified-Since" to headers.
+            # and if we have a last modified time from last run, 
+            # add "If-Modified-Since" to headers.
             if data is None: # never handled this feed before...
                 logger.info(feed+':looks like updated version. saving info')
-                cursor.execute("REPLACE INTO feed_info (feed,url) VALUES (?,?)",[feed,feed_url])
+                cursor.execute(
+                    "REPLACE INTO feed_info (feed,url) VALUES (?,?)",
+                    [feed,feed_url])
                 conn.commit()
                 logger.debug(feed+':feed info saved')
             else:
-                logger.debug(feed+':setting up extra headers for HTTP request.')
+                logger.debug(feed+
+                             ':setting up extra headers for HTTP request.')
                 logger.debug(data)
                 lastmodified = data[0]
                 etag = data[1]
                 if lastmodified is not None and len(lastmodified):
-                    logger.debug(feed+':adding header If-Modified-Since: '+lastmodified)
+                    logger.debug(feed+
+                                 ':adding header If-Modified-Since: '+
+                                 lastmodified)
                     http_headers['If-Modified-Since'] = lastmodified
                 else:
                     logger.debug(feed+':no stored lastmodified')
@@ -345,13 +390,17 @@ def background_check_feed(feed,asyncioloop):
                     logger.debug(feed+':no stored ETag')
 
             logger.debug(feed+':sending http request for '+feed_url)
-            # Send actual request. yield from can yield control to another instance.
-            http_response = yield from httpclient.request('GET', feed_url, headers=http_headers)
+            # Send actual request.  yield from can yield control to another
+            # instance.
+            http_response = yield from httpclient.request('GET', 
+                                                          feed_url,
+                                                          headers=http_headers)
             logger.debug(http_response)
 
-            # Some feeds are smart enough to use that if-modified-since or etag info,
-            # which gives us a 304 status. If that happens, assume no new items,
-            # fall through rest of this and try again later.
+            # Some feeds are smart enough to use that if-modified-since or
+            # etag info, which gives us a 304 status.  If that happens,
+            # assume no new items, fall through rest of this and try again
+            # later.
             if http_response.status == 304:
                 logger.debug(feed+':data is old; moving on')
                 http_response.close()
@@ -359,9 +408,10 @@ def background_check_feed(feed,asyncioloop):
             elif http_response.status is None:
                 logger.error(feed+':HTTP response code is NONE')
                 raise HTTPError()
-            # If we get anything but a 200, that's a problem and we don't have good data,
-            # so give up and try later.
-            # Mostly handled different than 304/not-modified to make logging clearer.
+            # If we get anything but a 200, that's a problem and we don't
+            # have good data, so give up and try later.
+            # Mostly handled different than 304/not-modified to make logging
+            # clearer.
             elif http_response.status != 200:
                 logger.debug(feed+':HTTP error: '+str(http_response.status))
                 raise HTTPError()
@@ -379,21 +429,27 @@ def background_check_feed(feed,asyncioloop):
             logger.debug(feed+':done fetching')
 
 
-            # If we got an ETAG back in headers, store that, so we can include on next fetch
+            # If we got an ETAG back in headers, store that, so we can
+            # include on next fetch
             if 'ETAG' in http_response.headers:
                 etag = http_response.headers['ETAG']
                 logger.debug(feed+':saving etag: '+etag)
-                cursor.execute("UPDATE feed_info SET etag=? where feed=? or url=?",[etag,feed,feed_url])
+                cursor.execute(
+                    "UPDATE feed_info SET etag=? where feed=? or url=?",
+                    [etag,feed,feed_url])
                 conn.commit()
                 logger.debug(feed+':etag saved')
             else:
                 logger.debug(feed+':no etag')
 
-            # If we got a Last-Modified header back, store that, so we can include on next fetch
+            # If we got a Last-Modified header back, store that, so we can
+            # include on next fetch
             if 'LAST-MODIFIED' in http_response.headers:
                 modified = http_response.headers['LAST-MODIFIED']
                 logger.debug(feed+':saving lastmodified: '+modified)
-                cursor.execute("UPDATE feed_info SET lastmodified=? where feed=? or url=?",[modified,feed,feed_url])
+                cursor.execute(
+                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
+                    [modified,feed,feed_url])
                 conn.commit()
                 logger.debug(feed+':saved lastmodified')
             else:
@@ -424,34 +480,51 @@ def background_check_feed(feed,asyncioloop):
                 pubDate_parsed = pubDateDict['date_parsed']
 
                 logger.debug(feed+':item:id:'+id)
-                logger.debug(feed+':item:checking database history for this item')
+                logger.debug(feed+
+                             ':item:checking database history for this item')
                 # Check DB for this item
-                cursor.execute("SELECT published,title,url,reposted FROM feed_items WHERE id=?",[id])
+                cursor.execute(
+                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
+                    [id])
                 data=cursor.fetchone()
 
-                # If we've never seen it before, then actually processing this:
+                # If we've never seen it before, then actually processing
+                # this:
                 if data is None:
                     logger.info(feed+':item '+id+' unseen, processing:')
 
                     # Store info about this item, so next time we skip it:
-                    cursor.execute("INSERT INTO feed_items (id,published) VALUES (?,?)",[id,pubDate])
+                    cursor.execute(
+                        "INSERT INTO feed_items (id,published) VALUES (?,?)",
+                        [id,pubDate])
                     conn.commit()
                     
                     # Doing some crazy date math stuff...
-                    # max_age is mostly so that first run doesn't spew too much stuff into a room,
-                    # but is also a useful safety measure in case a feed suddenly reverts to something ancient
-                    # or other weird problems...
+                    # max_age is mostly so that first run doesn't spew too
+                    # much stuff into a room, but is also a useful safety
+                    # measure in case a feed suddenly reverts to something
+                    # ancient or other weird problems...
                     time_since_published = timezone.localize(datetime.now()) - pubDate_parsed.astimezone(timezone)
                     
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed+':item:fresh and ready for parsing')
                       
-                        # Loop over all channels for this particular feed and process appropriately:
+                        # Loop over all channels for this particular feed
+                        # and process appropriately:
                         for channel in channels:
-                            logger.debug(feed+':item:building message for '+channel['name'])
+                            logger.debug(feed+
+                                         ':item:building message for '+
+                                         channel['name'])
                             message = build_message(FEED,item,channel)
-                            logger.debug(feed+':item:sending message (eventually) to '+channel['name'])
-                            yield from send_message_wrapper(asyncioloop,FEED,feed,channel,client,message)
+                            logger.debug(feed+
+                                         ':item:sending message (eventually) to '+
+                                         channel['name'])
+                            yield from send_message_wrapper(asyncioloop,
+                                                            FEED,
+                                                            feed,
+                                                            channel,
+                                                            client,
+                                                            message)
                     else:
                         # Logs of debugging info for date handling stuff...
                         logger.info(feed+':too old; skipping')
@@ -471,12 +544,14 @@ def background_check_feed(feed,asyncioloop):
         except HTTPNotModified:
             logger.debug(feed+':Headers indicate feed unchanged since last time fetched:')
             logger.debug(sys.exc_info())
-        # Many feeds have random periodic problems that shouldn't cause permanent death:
+        # Many feeds have random periodic problems that shouldn't cause
+        # permanent death:
         except HTTPError:
             logger.warn(feed+':Unexpected HTTP error:')
             logger.warn(sys.exc_info())
             logger.warn(feed+':Assuming error is transient and trying again later')
-        # sqlite3 errors are probably really bad and we should just totally give up on life
+        # sqlite3 errors are probably really bad and we should just totally
+        # give up on life
         except sqlite3.Error as sqlerr:
             logger.error(feed+':sqlite3 error: ')
             logger.error(sys.exc_info())
@@ -501,7 +576,7 @@ def background_check_feed(feed,asyncioloop):
             logger.debug(feed+':sleeping for '+str(rss_refresh_time)+' seconds')
             yield from asyncio.sleep(rss_refresh_time)
 
-# When client is "ready", set gameplayed and log that...
+# When client is "ready", set gameplayed, set avatar, and log startup...
 @client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
@@ -526,7 +601,8 @@ def main():
             loop.run_until_complete(client.login(MAIN.get("login_token")))
         else:
             loop.run_until_complete(
-                client.login(MAIN.get("login_email"), MAIN.get("login_password"))
+                client.login(MAIN.get("login_email"),
+                             MAIN.get("login_password"))
             )
         loop.run_until_complete(client.connect())
     except Exception:
@@ -539,13 +615,16 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
 
     try:
-        ### !!! If you use in a library, you really need to do this for loop !!!
+
+        ### !!!  If you use in a library, you really need to do this for
+        ### !!! loop
         for feed in feeds:
             loop.create_task(background_check_feed(feed,loop))
         if 'login_token' in MAIN:
             loop.run_until_complete(client.login(MAIN.get('login_token')))
         else:
-            loop.run_until_complete(client.login(MAIN.get('login_email'), MAIN.get('login_password')))
+            loop.run_until_complete(client.login(MAIN.get('login_email'),
+                                                 MAIN.get('login_password')))
         loop.run_until_complete(client.connect())
     except Exception:
         loop.run_until_complete(client.close())
