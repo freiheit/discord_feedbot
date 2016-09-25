@@ -6,16 +6,20 @@
 # We do the config stuff very first, so that we can pull debug from
 # there
 import configparser
-import os, sys
-import feedparser, aiohttp
-import sqlite3
-import re
-import pytz, time
-import dateutil.parser as dup
+import feedparser
 import html2text
-import logging, warnings, traceback
+import logging
+import os
+import pytz
+import re
+import sqlite3
+import sys
+import time
+import traceback
+import warnings
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from datetime import datetime
+from dateutil.parser import parse as parse_datetime
 from urllib.parse import urljoin
 
 # Parse the config and stick in global "config" var.
@@ -39,8 +43,11 @@ if debug:
     os.environ['PYTHONASYNCIODEBUG'] = '1' # needs to be set before
                                            # asyncio is pulled in
 
-# import that last module...
-import discord, asyncio
+# import those last modules that had to be done after the
+# os.environ thing above
+import aiohttp
+import asyncio
+import discord
 
 # Tell logging module about my debug level
 if debug >= 3:
@@ -116,7 +123,7 @@ def extract_best_item_date(item):
     for date_field in DATE_FIELDS:
         if date_field in item and len(item[date_field]) > 0:
             try:
-                date_obj = dup.parse(item[date_field])
+                date_obj = parse_datetime(item[date_field])
 
                 if date_obj.tzinfo is None:
                     timezone.localize(date_obj)
