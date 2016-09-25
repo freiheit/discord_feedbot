@@ -156,7 +156,10 @@ def process_field(field,item,FEED):
         # If there's any markdown on the field, return field with that markup on it:
         field = highlightmatch.group(2)
         if field in item:
-            return highlightmatch.group(1) + item[field] + highlightmatch.group(3)
+            if field == 'link':
+                return  highlightmatch.group(1) + urljoin(FEED.get('feed_url'),item[field]) + highlightmatch.group(3)
+            else:
+                return highlightmatch.group(1) + item[field] + highlightmatch.group(3)
         else:
             logger.error('process_field:'+field+':no such field')
             return ''
