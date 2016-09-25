@@ -31,6 +31,7 @@ import sqlite3
 import re
 import pytz, time
 from datetime import datetime
+from urllib.parse import urljoin
 import dateutil.parser as dup
 import html2text
 import logging, warnings, traceback
@@ -179,21 +180,29 @@ def process_field(field,item,FEED):
             return ''
     else:
         logger.debug(feed+':process_field:'+field+':isPlain')
-        # Otherwise, just return the plain field:
+        # Just asking for plain field:
         if field in item:
-            htmlfixer = html2text.HTML2Text()
-            logger.debug(htmlfixer)
-            htmlfixer.ignore_links = True
-            htmlfixer.ignore_images = True
-            htmlfixer.ignore_emphasis = False
-            htmlfixer.body_width = 1000
-            htmlfixer.unicode_snob = True
-            htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
-            markdownfield = htmlfixer.handle(item[field])
-            # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
-            markdownfield = re.sub('<[^<]+?>', '', markdownfield)
-            return markdownfield
+            # If field is special field "link",
+            # then use urljoin to turn relative URLs into absolute URLs
+            if field == 'link':
+                return urljoin(FEED.get('feed_url'),item[field])
+            # Else assume it's a "summary" or "content" or whatever field
+            # and turn HTML into markdown and don't add any markup:
+            else:
+                htmlfixer = html2text.HTML2Text()
+                logger.debug(htmlfixer)
+                htmlfixer.ignore_links = True
+                htmlfixer.ignore_images = True
+                htmlfixer.ignore_emphasis = False
+                htmlfixer.body_width = 1000
+                htmlfixer.unicode_snob = True
+                htmlfixer.ul_item_mark = '-' # Default of "*" likely to bold things, etc...
+                markdownfield = htmlfixer.handle(item[field])
+                # Try to strip any remaining HTML out. Not "safe", but simple and should catch most stuff:
+                markdownfield = re.sub('<[^<]+?>', '', markdownfield)
+                return markdownfield
         else:
+            logger.error('process_field:'+field+':no such field')
             return ''
 
 # This builds a message.
@@ -393,7 +402,8 @@ def background_check_feed(feed,asyncioloop):
             logger.debug(feed+':processing entries')
             for item in feed_data.entries:
                 logger.debug(feed+':item:processing this entry')
-                # logger.debug(item) # can be very noisy
+                if debug > 1:
+                    logger.debug(item) # can be very noisy
 
                 # Pull out the unique id, or just give up on this item.
                 id = ''
