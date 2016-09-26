@@ -546,7 +546,20 @@ def background_check_feed(feed,asyncioloop):
                                 if regexmatch is None:
                                     include = False
                                     logger.info(feed+':item:failed filter for '+channel['name'])
+                            elif (channel['name']+'.filter_exclude') in FEED:
+                                logger.debug(feed+':item:running exclude filter for'+channel['name'])
+                                regexpat = FEED.get(
+                                    channel['name']+'.filter_exclude','^.*$')
+                                logger.debug(feed+':item:using filter_exclude:'+regexpat+' on '+item['title'])
+                                regexmatch = re.search(regexpat,item['title'])
+                                if regexmatch is None:
+                                    include = True
+                                    logger.info(feed+':item:passed exclude filter for '+channel['name'])
+                                else:
+                                    include = False
+                                    logger.info(feed+':item:failed exclude filter for '+channel['name'])
                             else:
+                                include = True # redundant safety net
                                 logger.debug(feed+':item:no filter configured for'+channel['name'])
 
                             if include is True:
