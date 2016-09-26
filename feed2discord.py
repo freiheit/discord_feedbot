@@ -545,7 +545,9 @@ def background_check_feed(feed,asyncioloop):
                                 regexmatch = re.search(regexpat,item['title'])
                                 if regexmatch is None:
                                     include = False
-                                    logger.debug(feed+':item:failed filter for '+channel['name'])
+                                    logger.info(feed+':item:failed filter for '+channel['name'])
+                            else:
+                                logger.debug(feed+':item:no filter configured for'+channel['name'])
 
                             if include is True:
                                 logger.debug(feed+':item:building message for '+channel['name'])
@@ -557,6 +559,9 @@ def background_check_feed(feed,asyncioloop):
                                                                 channel,
                                                                 client,
                                                                 message)
+                            else:
+                                logger.info(feed+':item:skipping item due to not passing filter for '+channel['name'])
+
                     else:
                         # Logs of debugging info for date handling stuff...
                         logger.info(feed+':too old; skipping')
