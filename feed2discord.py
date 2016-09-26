@@ -536,13 +536,14 @@ def background_check_feed(feed,asyncioloop):
                         # and process appropriately:
                         for channel in channels:
                             include = True
+                            filter_field = FEED.get(channel['name']+'.filter_field','title')
                             # Regex if channel exists
                             if (channel['name']+'.filter') in FEED:
                                 logger.debug(feed+':item:running filter for'+channel['name'])
                                 regexpat = FEED.get(
                                     channel['name']+'.filter','^.*$')
-                                logger.debug(feed+':item:using filter:'+regexpat+' on '+item['title'])
-                                regexmatch = re.search(regexpat,item['title'])
+                                logger.debug(feed+':item:using filter:'+regexpat+' on '+item['title']+' field '+filter_field)
+                                regexmatch = re.search(regexpat,item[filter_field])
                                 if regexmatch is None:
                                     include = False
                                     logger.info(feed+':item:failed filter for '+channel['name'])
@@ -550,8 +551,8 @@ def background_check_feed(feed,asyncioloop):
                                 logger.debug(feed+':item:running exclude filter for'+channel['name'])
                                 regexpat = FEED.get(
                                     channel['name']+'.filter_exclude','^.*$')
-                                logger.debug(feed+':item:using filter_exclude:'+regexpat+' on '+item['title'])
-                                regexmatch = re.search(regexpat,item['title'])
+                                logger.debug(feed+':item:using filter_exclude:'+regexpat+' on '+item['title']+' field '+filter_field)
+                                regexmatch = re.search(regexpat,item[filter_field])
                                 if regexmatch is None:
                                     include = True
                                     logger.info(feed+':item:passed exclude filter for '+channel['name'])
