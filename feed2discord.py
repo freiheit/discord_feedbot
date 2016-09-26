@@ -96,17 +96,26 @@ httpclient = aiohttp.ClientSession()
 conn = sqlite3.connect(db_path)
 
 # If our two tables don't exist, create them.
+conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
+              (feed text PRIMARY KEY,
+              url text UNIQUE,
+              lastmodified text,
+              etag text)''')
+
 conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
               (id text PRIMARY KEY,
                published text,
                title text,
                url text,reposted text)''')
 
-conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
-              (feed text PRIMARY KEY,
-              url text UNIQUE,
-              lastmodified text,
-              etag text)''')
+# Clean out *some* entries that are over 1 year old...
+# Doing this cleanup at start time because some feeds
+# do contain very old items and we don't want to keep
+# re-evaluating them.
+conn.execute('''DELETE FROM feed_items
+               where
+               (julianday() - julianday(published)) > 366''')
+
 
 # global discord client object
 client = discord.Client()
