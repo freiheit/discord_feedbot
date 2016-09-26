@@ -536,12 +536,16 @@ def background_check_feed(feed,asyncioloop):
                         # and process appropriately:
                         for channel in channels:
                             include = True
-                            filter_field = FEED.get(channel['name']+'.filter_field','title')
+                            filter_field = FEED.get(
+                                                    channel['name']+'.filter_field',
+                                                    FEED.get('filter_field',
+                                                        'title'))
                             # Regex if channel exists
                             if (channel['name']+'.filter') in FEED:
                                 logger.debug(feed+':item:running filter for'+channel['name'])
                                 regexpat = FEED.get(
-                                    channel['name']+'.filter','^.*$')
+                                                    channel['name']+'.filter',
+                                                    FEED.get('filter','^.*$'))
                                 logger.debug(feed+':item:using filter:'+regexpat+' on '+item['title']+' field '+filter_field)
                                 regexmatch = re.search(regexpat,item[filter_field])
                                 if regexmatch is None:
@@ -550,7 +554,9 @@ def background_check_feed(feed,asyncioloop):
                             elif (channel['name']+'.filter_exclude') in FEED:
                                 logger.debug(feed+':item:running exclude filter for'+channel['name'])
                                 regexpat = FEED.get(
-                                    channel['name']+'.filter_exclude','^.*$')
+                                                    channel['name']+'.filter_exclude',
+                                                    FEED.get('filter_exclude',
+                                                    '^.*$'))
                                 logger.debug(feed+':item:using filter_exclude:'+regexpat+' on '+item['title']+' field '+filter_field)
                                 regexmatch = re.search(regexpat,item[filter_field])
                                 if regexmatch is None:
