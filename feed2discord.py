@@ -165,13 +165,13 @@ def process_field(field,item,FEED,channel):
             logger.error('process_field:guid:no such field')
             return ''
 
-    logger.debug(feed+':process_field:'+field+': checking against filters')
+    logger.debug(feed+':process_field:'+field+': checking against regexes')
     stringmatch = re.match('^"(.+?)"$',field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$',field)
     bigcodematch = re.match('^```(.+)$',field)
     codematch = re.match('^`(.+)`$',field)
 
-    tagmatch = re.match('^@(.+)$',field) # new tag filter
+    tagmatch = re.match('^@(.+)$',field) # new tag regex
 
     if stringmatch is not None:
         # Return an actual string literal from config:
