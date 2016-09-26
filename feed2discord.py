@@ -153,7 +153,8 @@ def extract_best_item_date(item):
 # naked item in fields: return that field from the feed item
 # *, **, _, ~, `, ```: markup the field and return it from the feed item
 # " around the field: string literal
-def process_field(field,item,FEED):
+# Added new @, turns each comma separated tag into a group mention
+def process_field(field,item,FEED,channel):
     logger.debug(feed+':process_field:'+field+': started')
 
     item_url_base = FEED.get('item_url_base',None)
@@ -164,11 +165,14 @@ def process_field(field,item,FEED):
             logger.error('process_field:guid:no such field')
             return ''
 
-    logger.debug(feed+':process_field:'+field+': checking against regexes')
+    logger.debug(feed+':process_field:'+field+': checking against filters')
     stringmatch = re.match('^"(.+?)"$',field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$',field)
     bigcodematch = re.match('^```(.+)$',field)
     codematch = re.match('^`(.+)`$',field)
+
+    tagmatch = re.match('^@(.+)$',field) # new tag filter
+
     if stringmatch is not None:
         # Return an actual string literal from config:
         logger.debug(feed+':process_field:'+field+':isString')
@@ -204,6 +208,18 @@ def process_field(field,item,FEED):
         field = codematch.group(1)
         if field in item:
             return '`'+item[field]+'`'
+        else:
+            logger.error('process_field:'+field+':no such field')
+            return ''
+    elif tagmatch is not None:
+        logger.debug(feed+':process_field:'+field+':isTag')
+        field = tagmatch.group(1)
+        if field in item:
+            taglist = item[field].split(', ') # Assuming tags are ', ' separated
+            # Iterate through channel roles, see if a role is mentionable and then substitute the role for its id
+            for role in client.get_channel(channel['id']).server.roles:
+                taglist = ['<@&'+role.id+'>' if str(role.name) == str(i) else i for i in taglist]
+            return ', '.join(taglist)
         else:
             logger.error('process_field:'+field+':no such field')
             return ''
@@ -254,7 +270,7 @@ def build_message(FEED,item,channel):
     # Extract fields in order
     for field in fieldlist:
         logger.debug(feed+':item:build_message:'+field+':added to message')
-        message+=process_field(field,item,FEED)+"\n"
+        message+=process_field(field,item,FEED,channel)+"\n"
 
     # Naked spaces are terrible:
     message = re.sub(' +\n','\n',message)
@@ -519,24 +535,52 @@ def background_check_feed(feed,asyncioloop):
                         # Loop over all channels for this particular feed
                         # and process appropriately:
                         for channel in channels:
-                            logger.debug(feed+
-                                         ':item:building message for '+
-                                         channel['name'])
-                            message = build_message(FEED,item,channel)
-                            logger.debug(feed+
-                                         ':item:sending message (eventually) to '+
-                                         channel['name'])
-                            yield from send_message_wrapper(asyncioloop,
-                                                            FEED,
-                                                            feed,
-                                                            channel,
-                                                            client,
-                                                            message)
+                            include = True
+                            # Regex if channel exists
+                            if (channel['name']+'.filter') in FEED:
+                                logger.debug(feed+':item:running filter for'+channel['name'])
+                                regexpat = FEED.get(
+                                    channel['name']+'.filter','^.*$')
+                                logger.debug(feed+':item:using filter:'+regexpat+' on '+item['title'])
+                                regexmatch = re.search(regexpat,item['title'])
+                                if regexmatch is None:
+                                    include = False
+                                    logger.info(feed+':item:failed filter for '+channel['name'])
+                            elif (channel['name']+'.filter_exclude') in FEED:
+                                logger.debug(feed+':item:running exclude filter for'+channel['name'])
+                                regexpat = FEED.get(
+                                    channel['name']+'.filter_exclude','^.*$')
+                                logger.debug(feed+':item:using filter_exclude:'+regexpat+' on '+item['title'])
+                                regexmatch = re.search(regexpat,item['title'])
+                                if regexmatch is None:
+                                    include = True
+                                    logger.info(feed+':item:passed exclude filter for '+channel['name'])
+                                else:
+                                    include = False
+                                    logger.info(feed+':item:failed exclude filter for '+channel['name'])
+                            else:
+                                include = True # redundant safety net
+                                logger.debug(feed+':item:no filter configured for'+channel['name'])
+
+                            if include is True:
+                                logger.debug(feed+':item:building message for '+channel['name'])
+                                message = build_message(FEED,item,channel)
+                                logger.debug(feed+':item:sending message (eventually) to '+channel['name'])
+                                yield from send_message_wrapper(asyncioloop,
+                                                                FEED,
+                                                                feed,
+                                                                channel,
+                                                                client,
+                                                                message)
+                            else:
+                                logger.info(feed+':item:skipping item due to not passing filter for '+channel['name'])
+
                     else:
                         # Logs of debugging info for date handling stuff...
                         logger.info(feed+':too old; skipping')
                         logger.debug(feed+':now:'+str(time.time()))
                         logger.debug(feed+':now:gmtime:'+str(time.gmtime()))
+
                         logger.debug(feed+':now:localtime:'+str(time.localtime()))
                         logger.debug(feed+':timezone.localize(datetime.now()):'+str(timezone.localize(datetime.now())))
                         logger.debug(feed+':pubDate:'+str(pubDate))
