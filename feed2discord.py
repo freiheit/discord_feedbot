@@ -165,13 +165,13 @@ def process_field(field,item,FEED,channel):
             logger.error('process_field:guid:no such field')
             return ''
 
-    logger.debug(feed+':process_field:'+field+': checking against regexes')
+    logger.debug(feed+':process_field:'+field+': checking against filters')
     stringmatch = re.match('^"(.+?)"$',field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$',field)
     bigcodematch = re.match('^```(.+)$',field)
     codematch = re.match('^`(.+)`$',field)
 
-    tagmatch = re.match('^@(.+)$',field) # new tag regex
+    tagmatch = re.match('^@(.+)$',field) # new tag filter
 
     if stringmatch is not None:
         # Return an actual string literal from config:
@@ -537,15 +537,15 @@ def background_check_feed(feed,asyncioloop):
                         for channel in channels:
                             include = True
                             # Regex if channel exists
-                            if (channel['name']+'.regex') in FEED:
-                                logger.debug(feed+':item:running regex for'+channel['name'])
+                            if (channel['name']+'.filter') in FEED:
+                                logger.debug(feed+':item:running filter for'+channel['name'])
                                 regexpat = FEED.get(
-                                    channel['name']+'.regex','^.*$')
-                                logger.debug(feed+':item:using regex:'+regexpat+' on '+item['title'])
+                                    channel['name']+'.filter','^.*$')
+                                logger.debug(feed+':item:using filter:'+regexpat+' on '+item['title'])
                                 regexmatch = re.search(regexpat,item['title'])
                                 if regexmatch is None:
                                     include = False
-                                    logger.debug(feed+':item:failed regex for '+channel['name'])
+                                    logger.debug(feed+':item:failed filter for '+channel['name'])
 
                             if include is True:
                                 logger.debug(feed+':item:building message for '+channel['name'])
