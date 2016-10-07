@@ -490,8 +490,9 @@ def background_check_feed(feed,asyncioloop):
             http_response.close()
 
             # Process all of the entries in the feed
+            # Use reversed to start with end, which is usually oldest
             logger.debug(feed+':processing entries')
-            for item in feed_data.entries:
+            for item in reversed(feed_data.entries):
                 logger.debug(feed+':item:processing this entry')
                 if debug > 1:
                     logger.debug(item) # can be very noisy
