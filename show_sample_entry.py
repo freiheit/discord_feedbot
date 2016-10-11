@@ -13,8 +13,10 @@ feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 if len(sys.argv) == 2:
   feed_url = sys.argv[1]
   feed_data = feedparser.parse(feed_url)
-  # depth=1 because we can't handle anything deeper
   pp = pprint.PrettyPrinter(indent=4, depth=1)
+  print('# We currently restrict this output to depth=1,')
+  print("# because that's all the bot can currently handle.")
+  print("# So, ignore those `[...]` and `{...}` structures and only look at 'strings'.")
   pp.pprint(feed_data.entries[0])  
 else:
   print("Give me 1 feed URL on the command-line, and I'll give the first entry from it.")

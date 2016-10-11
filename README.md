@@ -27,7 +27,7 @@ be a single bot.
 9. Set the timezone in the .ini file to the same as the timezone your system is set to.
 10. Get all the channel IDs (Turn on "Developer Mode" in Settings/Appearance, then right-click channel)
 11. Figure out your feeds.
-   - You'll need to figure out what fields by examining what's in an item in your feeds.
+   - You'll need to figure out what fields by examining what's in an item in your feeds. You can use `show_sample_entry.py` to help.
 12. configure feeds in feed2discord.local.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
 13. Run the bot.
 
