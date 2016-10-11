@@ -56,6 +56,10 @@ it out, please give me a pull request.
 ### Can I have a feed ping a specific person or role?
 Yes. Add a string with their ping text to the fields.
 
+### How do I figure out what fields are in a feed? or I get "no such field" errors.
+Use `show_sample_entry.py http://example.com/your_feed/thing.rss`. This
+dumps out the data structure that our feed parsing library produces.
+
 ### How do I figure out my timezone?
 On Windows, check settings/time for the timezone or run "tzutil /g".
 

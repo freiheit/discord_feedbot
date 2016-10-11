@@ -171,7 +171,7 @@ def process_field(field,item,FEED,channel):
         if 'guid' in item:
             return item_url_base + item['guid']
         else:
-            logger.error('process_field:guid:no such field')
+            logger.error('process_field:guid:no such field; try show_sample_entry.py on feed')
             return ''
 
     logger.debug(feed+':process_field:'+field+': checking against regexes')
@@ -198,7 +198,7 @@ def process_field(field,item,FEED,channel):
             else:
                 return highlightmatch.group(1) + item[field] + highlightmatch.group(3)
         else:
-            logger.error('process_field:'+field+':no such field')
+            logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
     elif bigcodematch is not None:
         logger.debug(feed+':process_field:'+field+':isCodeBlock')
@@ -207,7 +207,7 @@ def process_field(field,item,FEED,channel):
         if field in item:
             return '```\n'+item[field]
         else:
-            logger.error('process_field:'+field+':no such field')
+            logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
     elif codematch is not None:
         logger.debug(feed+':process_field:'+field+':isCode')
@@ -218,7 +218,7 @@ def process_field(field,item,FEED,channel):
         if field in item:
             return '`'+item[field]+'`'
         else:
-            logger.error('process_field:'+field+':no such field')
+            logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
     elif tagmatch is not None:
         logger.debug(feed+':process_field:'+field+':isTag')
@@ -230,7 +230,7 @@ def process_field(field,item,FEED,channel):
                 taglist = ['<@&'+role.id+'>' if str(role.name) == str(i) else i for i in taglist]
             return ', '.join(taglist)
         else:
-            logger.error('process_field:'+field+':no such field')
+            logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
     else:
         logger.debug(feed+':process_field:'+field+':isPlain')
@@ -259,7 +259,7 @@ def process_field(field,item,FEED,channel):
                 markdownfield = re.sub('<[^<]+?>', '', markdownfield)
                 return markdownfield
         else:
-            logger.error('process_field:'+field+':no such field')
+            logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
 
 # This builds a message.
