@@ -503,6 +503,8 @@ def background_check_feed(feed,asyncioloop):
                     id=item.id
                 elif 'guid' in item:
                     id=item.guid
+                elif 'link' in item:
+                    id=item.link
                 else:
                     logger.error(feed+':item:no id, skipping')
                     continue
