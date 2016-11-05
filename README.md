@@ -12,6 +12,10 @@ Since this bot doesn't *react* to anything in channels or messages, you could al
 have it sign into the same account as another bot, and externally it should appear to
 be a single bot.
 
+# Elite: Dangerous related Discord?
+
+If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Read more here: https://github.com/freiheit/discord_feedbot/wiki/Getting-my-feedbot-on-your-server
+
 ## Initial Setup
 
 1. Make sure the time on your system is correct. (NTP strongly recommended)
