@@ -22,6 +22,10 @@ from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 from urllib.parse import urljoin
 
+if not sys.version_info[:2] == (3, 4):
+    print("Error: requires python 3.4 or newer")
+    exit(1)
+
 # Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
 for inifile in [
@@ -553,7 +557,7 @@ def background_check_feed(feed,asyncioloop):
                                                     FEED.get('filter_field',
                                                         'title'))
                             # Regex if channel exists
-                            if (channel['name']+'.filter') in FEED:
+                            if (channel['name']+'.filter') in FEED or 'filter' in FEED:
                                 logger.debug(feed+':item:running filter for'+channel['name'])
                                 regexpat = FEED.get(
                                                     channel['name']+'.filter',
@@ -563,7 +567,7 @@ def background_check_feed(feed,asyncioloop):
                                 if regexmatch is None:
                                     include = False
                                     logger.info(feed+':item:failed filter for '+channel['name'])
-                            elif (channel['name']+'.filter_exclude') in FEED:
+                            elif (channel['name']+'.filter_exclude') in FEED or 'filter_exclude' in FEED:
                                 logger.debug(feed+':item:running exclude filter for'+channel['name'])
                                 regexpat = FEED.get(
                                                     channel['name']+'.filter_exclude',
