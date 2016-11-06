@@ -22,7 +22,7 @@ from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 from urllib.parse import urljoin
 
-if not sys.version_info[:2] == (3, 4):
+if not sys.version_info[:2] >= (3, 4):
     print("Error: requires python 3.4 or newer")
     exit(1)
 
