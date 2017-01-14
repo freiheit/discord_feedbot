@@ -21,6 +21,7 @@ from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 from urllib.parse import urljoin
+from random import randint
 
 if not sys.version_info[:2] >= (3, 4):
     print("Error: requires python 3.4 or newer")
@@ -342,6 +343,7 @@ def background_check_feed(feed,asyncioloop):
     # pull config for this feed out:
     feed_url = FEED.get('feed_url')
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
+    start_skew = FEED.getint('start_skew',rss_refresh_time)
     max_age = FEED.getint('max_age',86400)
 
     # loop through all the channels this feed is configured to send to
@@ -356,6 +358,11 @@ def background_check_feed(feed,asyncioloop):
               'id': config['CHANNELS'][key],
             }
         )
+
+    if start_skew > 0:
+        sleep_time = randint(0,start_skew)
+        logger.info(feed+':start_skew:sleeping for '+str(sleep_time))
+        yield from asyncio.sleep(randint(0,start_skew))
 
     # Basically run forever
     while not client.is_closed:
