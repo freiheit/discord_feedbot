@@ -344,7 +344,7 @@ def background_check_feed(feed,asyncioloop):
     feed_url = FEED.get('feed_url')
     rss_refresh_time = FEED.getint('rss_refresh_time',3600)
     start_skew = FEED.getint('start_skew',rss_refresh_time)
-    start_skew_min = FEED.getint('start_skew_min',0.1)
+    start_skew_min = FEED.getint('start_skew_min',1)
     max_age = FEED.getint('max_age',86400)
 
     # loop through all the channels this feed is configured to send to
