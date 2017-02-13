@@ -1,6 +1,6 @@
 # [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
 
-![Feed Bot](avatar-angry-small.png)
+![Feed Bot](avatars/avatar-angry-small.png)
 
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
@@ -11,6 +11,10 @@ It should be possible to use as a library in another bot.
 Since this bot doesn't *react* to anything in channels or messages, you could always
 have it sign into the same account as another bot, and externally it should appear to
 be a single bot.
+
+# Elite: Dangerous related Discord?
+
+If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Read more here: https://github.com/freiheit/discord_feedbot/wiki/Getting-my-feedbot-on-your-server
 
 ## Initial Setup
 
@@ -27,7 +31,7 @@ be a single bot.
 9. Set the timezone in the .ini file to the same as the timezone your system is set to.
 10. Get all the channel IDs (Turn on "Developer Mode" in Settings/Appearance, then right-click channel)
 11. Figure out your feeds.
-   - You'll need to figure out what fields by examining what's in an item in your feeds.
+   - You'll need to figure out what fields by examining what's in an item in your feeds. You can use `show_sample_entry.py` to help.
 12. configure feeds in feed2discord.local.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
 13. Run the bot.
 
@@ -53,6 +57,13 @@ it out, please give me a pull request.
 - [html2text](https://pypi.python.org/pypi/html2text)
 
 ## Frequently Asked Questions
+### Can I have a feed ping a specific person or role?
+Yes. Add a string with their ping text to the fields.
+
+### How do I figure out what fields are in a feed? or I get "no such field" errors.
+Use `show_sample_entry.py http://example.com/your_feed/thing.rss`. This
+dumps out the data structure that our feed parsing library produces.
+
 ### How do I figure out my timezone?
 On Windows, check settings/time for the timezone or run "tzutil /g".
 
