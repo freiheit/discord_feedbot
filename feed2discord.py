@@ -662,8 +662,11 @@ def background_check_feed(feed,asyncioloop):
 @client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
-    gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_rss_bot")
-    yield from client.change_presence(game=discord.Game(name=gameplayed),status=discord.Status.idle)
+
+    gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
+    if gameplayed:
+        yield from client.change_presence(game=discord.Game(name=gameplayed),status=discord.Status.idle)
+
     avatar_file_name = MAIN.get("avatarfile")
     if avatar_file_name:
         with open(avatar_file_name, "rb") as f:
