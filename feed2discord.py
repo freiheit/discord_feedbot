@@ -243,7 +243,10 @@ def process_field(field, item, FEED, channel):
             # then substitute the role for its id
             for role in client.get_channel(channel['id']).server.roles:
                 taglist = [
-                    '<@&' + role.id + '>' if str(role.name) == str(i) else i for i in taglist]
+                    '<@&' +
+                    role.id +
+                    '>' if str(
+                        role.name) == str(i) else i for i in taglist]
             return ', '.join(taglist)
         else:
             logger.error('process_field:' + field +
@@ -420,8 +423,8 @@ def background_check_feed(feed, asyncioloop):
             # pull data about history of this *feed* from DB:
             cursor = conn.cursor()
             cursor.execute(
-                "select lastmodified,etag from feed_info where feed=? OR url=?",
-                [feed, feed_url])
+                "select lastmodified,etag from feed_info where feed=? OR url=?", [
+                    feed, feed_url])
             data = cursor.fetchone()
 
             # If we've handled this feed before,
@@ -512,8 +515,8 @@ def background_check_feed(feed, asyncioloop):
                 modified = http_response.headers['LAST-MODIFIED']
                 logger.debug(feed + ':saving lastmodified: ' + modified)
                 cursor.execute(
-                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
-                    [modified, feed, feed_url])
+                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?", [
+                        modified, feed, feed_url])
                 conn.commit()
                 logger.debug(feed + ':saved lastmodified')
             else:
@@ -551,8 +554,7 @@ def background_check_feed(feed, asyncioloop):
                              ':item:checking database history for this item')
                 # Check DB for this item
                 cursor.execute(
-                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
-                    [id])
+                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?", [id])
                 data = cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
@@ -593,8 +595,14 @@ def background_check_feed(feed, asyncioloop):
                                 regexpat = FEED.get(
                                     channel['name'] + '.filter',
                                     FEED.get('filter', '^.*$'))
-                                logger.debug(feed + ':item:using filter:' + regexpat +
-                                             ' on ' + item['title'] + ' field ' + filter_field)
+                                logger.debug(
+                                    feed +
+                                    ':item:using filter:' +
+                                    regexpat +
+                                    ' on ' +
+                                    item['title'] +
+                                    ' field ' +
+                                    filter_field)
                                 regexmatch = re.search(
                                     regexpat, item[filter_field])
                                 if regexmatch is None:
@@ -608,8 +616,14 @@ def background_check_feed(feed, asyncioloop):
                                     channel['name'] + '.filter_exclude',
                                     FEED.get('filter_exclude',
                                              '^.*$'))
-                                logger.debug(feed + ':item:using filter_exclude:' + regexpat +
-                                             ' on ' + item['title'] + ' field ' + filter_field)
+                                logger.debug(
+                                    feed +
+                                    ':item:using filter_exclude:' +
+                                    regexpat +
+                                    ' on ' +
+                                    item['title'] +
+                                    ' field ' +
+                                    filter_field)
                                 regexmatch = re.search(
                                     regexpat, item[filter_field])
                                 if regexmatch is None:
@@ -650,12 +664,14 @@ def background_check_feed(feed, asyncioloop):
 
                         logger.debug(feed + ':now:localtime:' +
                                      str(time.localtime()))
-                        logger.debug(
-                            feed + ':timezone.localize(datetime.now()):' + str(timezone.localize(datetime.now())))
+                        logger.debug(feed +
+                                     ':timezone.localize(datetime.now()):' +
+                                     str(timezone.localize(datetime.now())))
                         logger.debug(feed + ':pubDate:' + str(pubDate))
                         logger.debug(feed + ':pubDate_parsed:' +
                                      str(pubDate_parsed))
-                        logger.debug(feed + ':pubDate_parsed.astimezome(timezone):' +
+                        logger.debug(feed +
+                                     ':pubDate_parsed.astimezome(timezone):' +
                                      str(pubDate_parsed.astimezone(timezone)))
                         if debug >= 4:
                             logger.debug(item)
@@ -688,7 +704,8 @@ def background_check_feed(feed, asyncioloop):
             logger.error(feed + ':discord.errors.Forbidden')
             logger.error(sys.exc_info())
             logger.error(
-                feed + ":Perhaps bot isn't allowed in one of the channels for this feed?")
+                feed +
+                ":Perhaps bot isn't allowed in one of the channels for this feed?")
             # raise # or not? hmm...
         # unknown error: definitely give up and die and move on
         except:
