@@ -45,7 +45,8 @@ debug = MAIN.getint('debug', 0)
 
 # If debug is on, turn on the asyncio debug
 if debug:
-    os.environ['PYTHONASYNCIODEBUG'] = '1'  # needs to be set before asyncio is pulled in
+    # needs to be set before asyncio is pulled in
+    os.environ['PYTHONASYNCIODEBUG'] = '1'
 
 # import those last modules that had to be done after the
 # os.environ thing above
@@ -128,6 +129,8 @@ client = discord.Client()
 # a feed, and extracts the "best" one.  Falls back to "now" if nothing
 # is found.
 DATE_FIELDS = ('published', 'pubDate', 'date', 'created', 'updated')
+
+
 def extract_best_item_date(item):
     global timezone
     result = {}
@@ -199,9 +202,11 @@ def process_field(field, item, FEED, channel):
         field = highlightmatch.group(2)
         if field in item:
             if field == 'link':
-                return highlightmatch.group(1) + urljoin(FEED.get('feed_url'), item[field]) + highlightmatch.group(3)
+                return highlightmatch.group(
+                    1) + urljoin(FEED.get('feed_url'), item[field]) + highlightmatch.group(3)
             else:
-                return highlightmatch.group(1) + item[field] + highlightmatch.group(3)
+                return highlightmatch.group(
+                    1) + item[field] + highlightmatch.group(3)
         else:
             logger.error('process_field:' + field +
                          ':no such field; try show_sample_entry.py on feed')
@@ -276,12 +281,14 @@ def process_field(field, item, FEED, channel):
             return ''
 
 # This builds a message.
-# 
+#
 # Pulls the fields (trying for channel_name.fields in FEED, then fields in
 # FEED, then fields in DEFAULT, then "id,description".
 # fields in config is comma separate string, so pull into array.
 # then just adds things, separated by newlines.
 # truncates if too long.
+
+
 def build_message(FEED, item, channel):
     message = ''
     fieldlist = FEED.get(
@@ -306,6 +313,8 @@ def build_message(FEED, item, channel):
     return message
 
 # This schedules an 'actually_send_message' coroutine to run
+
+
 @asyncio.coroutine
 def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
     delay = FEED.getint(channel['name'] + '.delay', FEED.getint('delay', 0))
@@ -316,6 +325,8 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
     logger.debug(feed + ':' + channel['name'] + ':message scheduled')
 
 # Simply sleeps for delay and then sends message.
+
+
 @asyncio.coroutine
 def actually_send_message(channel, message, delay, FEED, feed):
     logger.debug(feed + ':' + channel['name'] + ':' + 'sleeping for ' +
@@ -335,6 +346,8 @@ def actually_send_message(channel, message, delay, FEED, feed):
 # One of these is run for each feed.
 # It's an asyncio thing. "yield from" (sleep or I/O) returns to main loop
 # and gives other feeds a chance to run.
+
+
 @asyncio.coroutine
 def background_check_feed(feed, asyncioloop):
     global timezone
@@ -573,7 +586,8 @@ def background_check_feed(feed, asyncioloop):
                                 FEED.get('filter_field',
                                          'title'))
                             # Regex if channel exists
-                            if (channel['name'] + '.filter') in FEED or 'filter' in FEED:
+                            if (channel['name'] +
+                                    '.filter') in FEED or 'filter' in FEED:
                                 logger.debug(
                                     feed + ':item:running filter for' + channel['name'])
                                 regexpat = FEED.get(
@@ -690,6 +704,8 @@ def background_check_feed(feed, asyncioloop):
             yield from asyncio.sleep(rss_refresh_time)
 
 # When client is "ready", set gameplayed, set avatar, and log startup...
+
+
 @client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
