@@ -182,7 +182,7 @@ def process_field(field,item,FEED,channel):
     logger.debug(feed+':process_field:'+field+': checking against regexes')
     stringmatch = re.match('^"(.+?)"$',field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$',field)
-    bigcodematch = re.match('^```(.+)$',field)
+    bigcodematch = re.match('^```(.+)```$',field)
     codematch = re.match('^`(.+)`$',field)
 
     tagmatch = re.match('^@(.+)$',field) # new tag regex
@@ -210,7 +210,7 @@ def process_field(field,item,FEED,channel):
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
-            return '```\n'+item[field]
+            return '```\n'+item[field]+'\n```'
         else:
             logger.error('process_field:'+field+':no such field; try show_sample_entry.py on feed')
             return ''
