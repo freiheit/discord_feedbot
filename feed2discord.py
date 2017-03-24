@@ -465,17 +465,19 @@ def background_check_feed(feed, asyncioloop):
                                                           headers=http_headers)
             logger.debug(http_response)
 
+            # First check that we didn't get a "None" response, since that's
+            # some sort of internal error thing:
+            if http_response.status is None:
+                logger.error(feed + ':HTTP response code is NONE')
+                raise HTTPError()
             # Some feeds are smart enough to use that if-modified-since or
             # etag info, which gives us a 304 status.  If that happens,
             # assume no new items, fall through rest of this and try again
             # later.
-            if http_response.status == 304:
+            elif http_response.status == 304:
                 logger.debug(feed + ':data is old; moving on')
                 http_response.close()
                 raise HTTPNotModified()
-            elif http_response.status is None:
-                logger.error(feed + ':HTTP response code is NONE')
-                raise HTTPError()
             # If we get anything but a 200, that's a problem and we don't
             # have good data, so give up and try later.
             # Mostly handled different than 304/not-modified to make logging
