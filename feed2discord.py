@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # Copyright (c) 2016 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
@@ -23,16 +23,21 @@ from dateutil.parser import parse as parse_datetime
 from urllib.parse import urljoin
 from random import uniform
 
+
 if not sys.version_info[:2] >= (3, 4):
     print("Error: requires python 3.4 or newer")
     exit(1)
 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
 for inifile in [
-        os.path.expanduser('~') + '/.feed2discord.ini',
-        'feed2discord.local.ini',
-        'feed2discord.ini']:
+    os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
+    os.path.join(BASE_DIR, "feed2discord.local.ini"),
+    os.path.join(BASE_DIR, "feed2discord.ini"),
+]:
     if os.path.isfile(inifile):
         config.read(inifile)
         break  # First config file wins
