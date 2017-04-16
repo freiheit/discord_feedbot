@@ -166,7 +166,7 @@ def extract_best_item_date(item):
                 result['date_parsed'] = date_obj
 
                 return result
-            except Exception as e:
+            except Exception:
                 pass
 
     # No potentials found, default to current timezone's "now"
