@@ -3,11 +3,11 @@
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
-import sys
 import pprint
+import sys
 import feedparser
-import argparse
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
+
 
 # 0 is command itself:
 if len(sys.argv) == 2:
