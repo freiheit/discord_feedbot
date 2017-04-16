@@ -44,7 +44,8 @@ for inifile in [
     if os.path.isfile(inifile):
         if "local" not in inifile:
             print("WARNING: copy feed2discord.local.ini and edit that.")
-            print("Don't commit and push a feed2discord.ini with a login_token to github.")
+            print(
+                "Don't commit and push a feed2discord.ini with a login_token to github.")
             sleep(10)
         config.read(inifile)
         break  # First config file wins
@@ -228,7 +229,7 @@ def process_field(field, item, FEED, channel):
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
-            return '```\n'+item[field]+'\n```'
+            return '```\n' + item[field] + '\n```'
         else:
             logger.error('process_field:' + field +
                          ':no such field; try show_sample_entry.py on feed')
