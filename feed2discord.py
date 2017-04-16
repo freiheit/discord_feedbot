@@ -37,8 +37,8 @@ for inifile in [
     os.path.join(os.path.expanduser("~"), ".feed2discord.local.ini"),
     os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join(BASE_DIR, "feed2discord.ini"),
     os.path.join("feed2discord.local.ini"),
+    os.path.join(BASE_DIR, "feed2discord.ini"),
     os.path.join("feed2discord.ini"),
 ]:
     if os.path.isfile(inifile):
