@@ -483,9 +483,9 @@ def background_check_feed(feed, asyncioloop):
             # Mostly handled different than 304/not-modified to make logging
             # clearer.
             elif http_response.status != 200:
-                logger.debug(feed + ':HTTP error: ' +
-                             str(http_response.status))
-                raise HTTPError()
+                logger.debug(feed + ':HTTP error not 200')
+                             # + str(http_response.status))
+                # raise HTTPError()
             else:
                 logger.debug(feed + ':HTTP success')
 
