@@ -34,11 +34,18 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Parse the config and stick in global "config" var.
 config = configparser.ConfigParser()
 for inifile in [
+    os.path.join(os.path.expanduser("~"), ".feed2discord.local.ini"),
     os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
     os.path.join(BASE_DIR, "feed2discord.ini"),
+    os.path.join("feed2discord.local.ini"),
+    os.path.join("feed2discord.ini"),
 ]:
     if os.path.isfile(inifile):
+        if "local" not in inifile:
+            print("WARNING: copy feed2discord.local.ini and edit that.")
+            print("Don't commit and push a feed2discord.ini with a login_token to github.")
+            sleep(10)
         config.read(inifile)
         break  # First config file wins
 
