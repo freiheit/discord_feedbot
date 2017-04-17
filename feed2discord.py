@@ -20,6 +20,7 @@ import warnings
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
+from time import sleep
 from urllib.parse import urljoin
 from random import uniform
 
