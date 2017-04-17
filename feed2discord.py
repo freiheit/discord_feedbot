@@ -22,7 +22,6 @@ from urllib.parse import urljoin
 import aiohttp
 import discord
 import feedparser
-import pytz
 
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
@@ -124,20 +123,17 @@ def get_config():
     return config, logger
 
 
-config, logger = get_config()
+def get_timezone(config):
+    import pytz
 
-# Make main config area global, since used everywhere/anywhere
-MAIN = config['MAIN']
+    tzstr = config["MAIN"].get("timezone", "utc")
+    # This has to work on both windows and unix
+    try:
+        timezone = pytz.timezone(tzstr)
+    except Exception:
+        timezone = pytz.utc
 
-
-# Because windows hates you...
-# More complicated way to set the timezone stuff, but works on windows
-# and unix.
-tzstr = MAIN.get('timezone', 'utc')
-try:
-    timezone = pytz.timezone(tzstr)
-except Exception as e:
-    timezone = pytz.utc
+    return timezone
 
 
 def get_feeds_config(config):
@@ -167,6 +163,13 @@ def get_sqlite_connection(config):
     return conn
 
 
+config, logger = get_config()
+
+# Make main config area global, since used everywhere/anywhere
+MAIN = config['MAIN']
+TIMEZONE = get_timezone(config)
+
+
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
@@ -174,47 +177,29 @@ feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 # set up a single http client for everything to use.
 httpclient = aiohttp.ClientSession()
 
-
 # global discord client object
 client = discord.Client()
 
-# This function loops through all the common date fields for an item in
-# a feed, and extracts the "best" one.  Falls back to "now" if nothing
-# is found.
-DATE_FIELDS = ('published', 'pubDate', 'date', 'created', 'updated')
 
-
-def extract_best_item_date(item):
-    global timezone
-    result = {}
-
-    # Look for something vaguely timestamp-ish.
-    for date_field in DATE_FIELDS:
+def extract_best_item_date(item, tzinfo):
+    # This function loops through all the common date fields for an item in
+    # a feed, and extracts the "best" one.  Falls back to "now" if nothing
+    # is found.
+    fields = ("published", "pubDate", "date", "created", "updated")
+    for date_field in fields:
         if date_field in item and len(item[date_field]) > 0:
             try:
                 date_obj = parse_datetime(item[date_field])
 
                 if date_obj.tzinfo is None:
-                    timezone.localize(date_obj)
+                    tzinfo.localize(date_obj)
 
-                # result['date'] = item[date_field]
-                # result['date_parsed'] = item[date_field+"_parsed"]
-
-                # Standardize stored time based on the timezone in the
-                # ini file
-                result['date'] = date_obj.strftime("%a %b %d %H:%M:%S %Z %Y")
-                result['date_parsed'] = date_obj
-
-                return result
+                return date_obj
             except Exception:
                 pass
 
     # No potentials found, default to current timezone's "now"
-    curtime = timezone.localize(datetime.now())
-    result['date'] = curtime.strftime("%a %b %d %H:%M:%S %Z %Y")
-    result['date_parsed'] = curtime
-
-    return result
+    return tzinfo.localize(datetime.now())
 
 
 def should_send_typing(conf, feed_name):
@@ -408,7 +393,6 @@ def actually_send_message(channel, message, delay, FEED, feed):
 
 @asyncio.coroutine
 def background_check_feed(conn, feed, asyncioloop):
-    global timezone
     logger.info(feed + ': Starting up background_check_feed')
 
     # Try to wait until Discord client has connected, etc:
@@ -596,9 +580,8 @@ def background_check_feed(conn, feed, asyncioloop):
                     continue
 
                 # Get our best date out, in both raw and parsed form
-                pubDateDict = extract_best_item_date(item)
-                pubDate = pubDateDict['date']
-                pubDate_parsed = pubDateDict['date_parsed']
+                pubdate = extract_best_item_date(item, TIMEZONE)
+                pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
                 logger.debug(feed + ':item:id:' + id)
                 logger.debug(feed +
@@ -616,7 +599,7 @@ def background_check_feed(conn, feed, asyncioloop):
                     # Store info about this item, so next time we skip it:
                     cursor.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
-                        [id, pubDate])
+                        [id, pubdate_fmt])
                     conn.commit()
 
                     # Doing some crazy date math stuff...
@@ -624,8 +607,8 @@ def background_check_feed(conn, feed, asyncioloop):
                     # much stuff into a room, but is also a useful safety
                     # measure in case a feed suddenly reverts to something
                     # ancient or other weird problems...
-                    time_since_published = timezone.localize(
-                        datetime.now()) - pubDate_parsed.astimezone(timezone)
+                    time_since_published = TIMEZONE.localize(
+                        datetime.now()) - pubdate.astimezone(TIMEZONE)
 
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed + ':item:fresh and ready for parsing')
@@ -707,22 +690,11 @@ def background_check_feed(conn, feed, asyncioloop):
 
                     else:
                         # Logs of debugging info for date handling stuff...
-                        logger.info(feed + ':too old; skipping')
-                        logger.debug(feed + ':now:' + str(time.time()))
-                        logger.debug(feed + ':now:gmtime:' +
-                                     str(time.gmtime()))
-
-                        logger.debug(feed + ':now:localtime:' +
-                                     str(time.localtime()))
-                        logger.debug(feed +
-                                     ':timezone.localize(datetime.now()):' +
-                                     str(timezone.localize(datetime.now())))
-                        logger.debug(feed + ':pubDate:' + str(pubDate))
-                        logger.debug(feed + ':pubDate_parsed:' +
-                                     str(pubDate_parsed))
-                        logger.debug(feed +
-                                     ':pubDate_parsed.astimezome(timezone):' +
-                                     str(pubDate_parsed.astimezone(timezone)))
+                        logger.info("%s:too old, skipping", feed)
+                        logger.debug("%s:now:now:%s", feed, time.time())
+                        logger.debug("%s:now:gmtime:%s", feed, time.gmtime())
+                        logger.debug("%s:now:localtime:%s", feed, time.localtime())
+                        logger.debug("%s:pubDate:%r", feed, pubdate)
                         logger.debug(item)
                 # seen before, move on:
                 else:
