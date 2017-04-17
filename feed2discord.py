@@ -24,6 +24,30 @@ from urllib.parse import urljoin
 from random import uniform
 
 
+SQL_CREATE_FEED_INFO_TBL = """
+CREATE TABLE IF NOT EXISTS feed_info (
+    feed text PRIMARY KEY,
+    url text UNIQUE,
+    lastmodified text,
+    etag text
+)
+"""
+
+SQL_CREATE_FEED_ITEMS_TBL = """
+CREATE TABLE IF NOT EXISTS feed_items (
+    id text PRIMARY KEY,
+    published text,
+    title text,
+    url text,
+    reposted text
+)
+"""
+
+SQL_CLEAN_OLD_ITEMS = """
+DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 365
+"""
+
+
 if not sys.version_info[:2] >= (3, 4):
     print("Error: requires python 3.4 or newer")
     exit(1)
@@ -95,8 +119,6 @@ try:
 except Exception as e:
     timezone = pytz.utc
 
-db_path = MAIN.get('db_path', 'feed2discord.db')
-
 
 def get_feeds_config(config):
     feeds = list(config.sections())
@@ -108,36 +130,29 @@ def get_feeds_config(config):
     return feeds
 
 
+def get_sqlite_connection(config):
+    db_path = config["MAIN"].get("db_path", "feed2discord.db")
+    conn = sqlite3.connect(db_path)
+
+    # If our two tables don't exist, create them.
+    conn.execute(SQL_CREATE_FEED_INFO_TBL)
+    conn.execute(SQL_CREATE_FEED_ITEMS_TBL)
+
+    # Clean out *some* entries that are over 1 year old...
+    # Doing this cleanup at start time because some feeds
+    # do contain very old items and we don't want to keep
+    # re-evaluating them.
+    conn.execute(SQL_CLEAN_OLD_ITEMS)
+
+    return conn
+
+
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
 # set up a single http client for everything to use.
 httpclient = aiohttp.ClientSession()
-
-# global database thing
-conn = sqlite3.connect(db_path)
-
-# If our two tables don't exist, create them.
-conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
-              (feed text PRIMARY KEY,
-              url text UNIQUE,
-              lastmodified text,
-              etag text)''')
-
-conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
-              (id text PRIMARY KEY,
-               published text,
-               title text,
-               url text,reposted text)''')
-
-# Clean out *some* entries that are over 1 year old...
-# Doing this cleanup at start time because some feeds
-# do contain very old items and we don't want to keep
-# re-evaluating them.
-conn.execute('''DELETE FROM feed_items
-               where
-               (julianday() - julianday(published)) > 366''')
 
 
 # global discord client object
@@ -370,7 +385,7 @@ def actually_send_message(channel, message, delay, FEED, feed):
 
 
 @asyncio.coroutine
-def background_check_feed(feed, asyncioloop):
+def background_check_feed(conn, feed, asyncioloop):
     global timezone
     logger.info(feed + ': Starting up background_check_feed')
 
@@ -764,10 +779,11 @@ def main():
     loop = asyncio.get_event_loop()
 
     feeds = get_feeds_config(config)
+    conn = get_sqlite_connection(config)
 
     try:
         for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
+            loop.create_task(background_check_feed(conn, feed, loop))
         if "login_token" in MAIN:
             loop.run_until_complete(client.login(MAIN.get("login_token")))
         else:
