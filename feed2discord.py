@@ -97,11 +97,16 @@ except Exception as e:
 
 db_path = MAIN.get('db_path', 'feed2discord.db')
 
-# Parse out total list of feeds
-feeds = config.sections()
-# these are non-feed sections:
-feeds.remove('MAIN')
-feeds.remove('CHANNELS')
+
+def get_feeds_config(config):
+    feeds = list(config.sections())
+
+    # remove non-feed sections
+    feeds.remove("MAIN")
+    feeds.remove("CHANNELS")
+
+    return feeds
+
 
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
@@ -757,6 +762,8 @@ def on_ready():
 # In this __main__ thing so can be used as library.
 def main():
     loop = asyncio.get_event_loop()
+
+    feeds = get_feeds_config(config)
 
     try:
         for feed in feeds:
