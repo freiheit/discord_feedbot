@@ -3,6 +3,7 @@
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
+import asyncio
 import logging
 import os
 import random
@@ -12,10 +13,14 @@ import sys
 import time
 import warnings
 
+from argparse import ArgumentParser
 from configparser import ConfigParser
 from datetime import datetime
+from importlib import reload
 from urllib.parse import urljoin
 
+import aiohttp
+import discord
 import feedparser
 import pytz
 
@@ -23,6 +28,12 @@ from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
+
+__version__ = "1.0"
+
+
+PROG_NAME = "feedbot"
+USER_AGENT = "%s/%s" % (PROG_NAME, __version__)
 
 SQL_CREATE_FEED_INFO_TBL = """
 CREATE TABLE IF NOT EXISTS feed_info (
@@ -53,62 +64,71 @@ if not sys.version_info[:2] >= (3, 4):
     exit(1)
 
 
+class ImproperlyConfigured(Exception):
+    pass
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Parse the config and stick in global "config" var.
-config = ConfigParser()
-for inifile in [
-    os.path.join(os.path.expanduser("~"), ".feed2discord.local.ini"),
+
+DEFAULT_CONFIG_PATHS = [
     os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join("feed2discord.local.ini"),
     os.path.join(BASE_DIR, "feed2discord.ini"),
-    os.path.join("feed2discord.ini"),
-]:
-    if os.path.isfile(inifile):
-        if "local" not in inifile:
-            print("WARNING: copy feed2discord.local.ini and edit that.")
-            print(
-                "Don't commit and push a feed2discord.ini with a login_token to github.")
-            time.sleep(10)
-        config.read(inifile)
-        break  # First config file wins
+]
+
+
+def parse_args():
+    version = "%(prog)s {}".format(__version__)
+    p = ArgumentParser(prog=PROG_NAME)
+    p.add_argument("--version", action="version", version=version)
+    p.add_argument("--config")
+
+    return p.parse_args()
+
+
+def get_config():
+    args = parse_args()
+    config = ConfigParser()
+    if args.config:
+        config.read(args.config)
+    else:
+        for path in DEFAULT_CONFIG_PATHS:
+            if os.path.isfile(path):
+                config.read(path)
+                break
+        else:
+            raise ImproperlyConfigured("No configuration file found.")
+
+    debug = config["MAIN"].getint("debug", 0)
+
+    if debug:
+        os.environ["PYTHONASYNCIODEBUG"] = "1"
+        # The AIO modules need to be reloaded because of the new env var
+        reload(asyncio)
+        reload(aiohttp)
+        reload(discord)
+
+    if debug >= 3:
+        log_level = logging.DEBUG
+    elif debug >= 2:
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING
+
+    logging.basicConfig(level=log_level)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(log_level)
+    warnings.resetwarnings()
+
+    return config, logger
+
+
+config, logger = get_config()
 
 # Make main config area global, since used everywhere/anywhere
 MAIN = config['MAIN']
 
-# set global debug verbosity level.
-debug = MAIN.getint('debug', 0)
-
-# If debug is on, turn on the asyncio debug
-if debug:
-    # needs to be set before asyncio is pulled in
-    os.environ['PYTHONASYNCIODEBUG'] = '1'
-
-# import those last modules that had to be done after the
-# os.environ thing above
-import aiohttp
-import asyncio
-import discord
-
-# Tell logging module about my debug level
-if debug >= 3:
-    logging.basicConfig(level=logging.DEBUG)
-elif debug >= 2:
-    logging.basicConfig(level=logging.INFO)
-else:
-    logging.basicConfig(level=logging.WARNING)
-
-# Create global logger object
-logger = logging.getLogger(__name__)
-
-# And finish telling logger module about my debug level
-if debug >= 1:
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
-
-warnings.resetwarnings()
 
 # Because windows hates you...
 # More complicated way to set the timezone stuff, but works on windows
@@ -396,7 +416,7 @@ def background_check_feed(conn, feed, asyncioloop):
     # make sure debug output has this check run in the right order...
     yield from asyncio.sleep(1)
 
-    user_agent = config["MAIN"].get("user_agent", "feed2discord/1.0")
+    user_agent = config["MAIN"].get("user_agent", USER_AGENT)
 
     # just a bit easier to use...
     FEED = config[feed]
@@ -561,9 +581,7 @@ def background_check_feed(conn, feed, asyncioloop):
             # Use reversed to start with end, which is usually oldest
             logger.debug(feed + ':processing entries')
             for item in reversed(feed_data.entries):
-                logger.debug(feed + ':item:processing this entry')
-                if debug > 1:
-                    logger.debug(item)  # can be very noisy
+                logger.debug("%s:item:processing this entry:%r", feed, item)
 
                 # Pull out the unique id, or just give up on this item.
                 id = ''
@@ -657,8 +675,7 @@ def background_check_feed(conn, feed, asyncioloop):
                                     item['title'] +
                                     ' field ' +
                                     filter_field)
-                                regexmatch = re.search(
-                                    regexpat, item[filter_field])
+                                regexmatch = re.search(regexpat, item[filter_field])
                                 if regexmatch is None:
                                     include = True
                                     logger.info(
@@ -706,8 +723,7 @@ def background_check_feed(conn, feed, asyncioloop):
                         logger.debug(feed +
                                      ':pubDate_parsed.astimezome(timezone):' +
                                      str(pubDate_parsed.astimezone(timezone)))
-                        if debug >= 4:
-                            logger.debug(item)
+                        logger.debug(item)
                 # seen before, move on:
                 else:
                     logger.debug(feed + ':item:' + id +
