@@ -390,6 +390,8 @@ def background_check_feed(conn, feed, asyncioloop):
     # make sure debug output has this check run in the right order...
     yield from asyncio.sleep(1)
 
+    user_agent = config["MAIN"].get("user_agent", "feed2discord/1.0")
+
     # just a bit easier to use...
     FEED = config[feed]
 
@@ -441,9 +443,7 @@ def background_check_feed(conn, feed, asyncioloop):
                             feed, channel
                         )
 
-            http_headers = {}
-            http_headers['User-Agent'] = MAIN.get('UserAgent',
-                                                  'feed2discord/1.0')
+            http_headers = {"User-Agent": user_agent}
 
             # Download the actual feed, if changed since last fetch
 
