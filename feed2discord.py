@@ -776,20 +776,4 @@ def main():
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-
-    try:
-        # !!!  If you use in a library, you really need to do this for
-        # !!! loop
-        for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
-        if 'login_token' in MAIN:
-            loop.run_until_complete(client.login(MAIN.get('login_token')))
-        else:
-            loop.run_until_complete(client.login(MAIN.get('login_email'),
-                                                 MAIN.get('login_password')))
-        loop.run_until_complete(client.connect())
-    except Exception:
-        loop.run_until_complete(client.close())
-    finally:
-        loop.close()
+    main()
