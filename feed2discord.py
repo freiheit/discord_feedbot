@@ -3,26 +3,25 @@
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
-# We do the config stuff very first, so that we can pull debug from
-# there
-import configparser
-import feedparser
-import html2text
 import logging
 import os
-import pytz
+import random
 import re
 import sqlite3
 import sys
 import time
-import traceback
 import warnings
-from aiohttp.web_exceptions import HTTPError, HTTPNotModified
+
+from configparser import ConfigParser
 from datetime import datetime
-from dateutil.parser import parse as parse_datetime
-from time import sleep
 from urllib.parse import urljoin
-from random import uniform
+
+import feedparser
+import pytz
+
+from aiohttp.web_exceptions import HTTPError, HTTPNotModified
+from dateutil.parser import parse as parse_datetime
+from html2text import HTML2Text
 
 
 SQL_CREATE_FEED_INFO_TBL = """
@@ -57,7 +56,7 @@ if not sys.version_info[:2] >= (3, 4):
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Parse the config and stick in global "config" var.
-config = configparser.ConfigParser()
+config = ConfigParser()
 for inifile in [
     os.path.join(os.path.expanduser("~"), ".feed2discord.local.ini"),
     os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
@@ -71,7 +70,7 @@ for inifile in [
             print("WARNING: copy feed2discord.local.ini and edit that.")
             print(
                 "Don't commit and push a feed2discord.ini with a login_token to github.")
-            sleep(10)
+            time.sleep(10)
         config.read(inifile)
         break  # First config file wins
 
@@ -297,7 +296,7 @@ def process_field(field, item, FEED, channel):
             # Else assume it's a "summary" or "content" or whatever field
             # and turn HTML into markdown and don't add any markup:
             else:
-                htmlfixer = html2text.HTML2Text()
+                htmlfixer = HTML2Text()
                 logger.debug(htmlfixer)
                 htmlfixer.ignore_links = True
                 htmlfixer.ignore_images = True
@@ -419,7 +418,7 @@ def background_check_feed(conn, feed, asyncioloop):
         )
 
     if start_skew > 0:
-        sleep_time = uniform(start_skew_min, start_skew)
+        sleep_time = random.uniform(start_skew_min, start_skew)
         logger.info(feed + ':start_skew:sleeping for ' + str(sleep_time))
         yield from asyncio.sleep(sleep_time)
 
@@ -744,11 +743,8 @@ def background_check_feed(conn, feed, asyncioloop):
                 ":Perhaps bot isn't allowed in one of the channels for this feed?")
             # raise # or not? hmm...
         # unknown error: definitely give up and die and move on
-        except:
-            logger.error(feed + ':Unexpected error:')
-            # logger.error(sys.exc_info())
-            logger.error(traceback.format_exc())
-            logger.error(feed + ':giving up')
+        except Exception:
+            logger.exception("Unexpected error - giving up")
             raise
         # No matter what goes wrong, wait same time and try again
         finally:
