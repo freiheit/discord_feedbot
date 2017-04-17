@@ -197,6 +197,11 @@ def extract_best_item_date(item):
     return result
 
 
+def should_send_typing(conf, feed_name):
+    global_send_typing = conf.getint("send_typing", 0)
+    return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
+
+
 # This looks at the field from the config, and returns the processed string
 # naked item in fields: return that field from the feed item
 # *, **, _, ~, `, ```: markup the field and return it from the feed item
@@ -361,18 +366,19 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
 
 @asyncio.coroutine
 def actually_send_message(channel, message, delay, FEED, feed):
-    logger.debug(feed + ':' + channel['name'] + ':' + 'sleeping for ' +
-                 str(delay) + ' seconds before sending message')
-    if FEED.getint(feed + '.send_typing', FEED.getint('send_typing', 0)) >= 1:
-        yield from client.send_typing(channel['object'])
+    logger.debug(
+        "%s:%s:sleeping for %i seconds before sending message",
+        feed, channel["name"], delay
+    )
+
+    if should_send_typing(FEED, feed):
+        yield from client.send_typing(channel["object"])
     yield from asyncio.sleep(delay)
 
-    logger.debug(feed + ':' + channel['name'] + ':actually sending message')
-    if FEED.getint(feed + '.send_typing', FEED.getint('send_typing', 0)) >= 1:
-        yield from client.send_typing(channel['object'])
-    yield from client.send_message(channel['object'], message)
-    logger.debug(feed + ':' + channel['name'] + ':message sent')
-    logger.debug(message)
+    logger.debug("%s:%s:actually sending message", feed, channel["name"])
+    yield from client.send_message(channel["object"], message)
+
+    logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
 
 # The main work loop
 # One of these is run for each feed.
@@ -429,9 +435,7 @@ def background_check_feed(conn, feed, asyncioloop):
 
             # If send_typing is on for the feed, send a little "typing ..."
             # whenever a feed is being worked on.  configurable per-room
-            if FEED.getint(
-                    feed + '.send_typing',
-                    FEED.getint('send_typing', 0)) >= 1:
+            if should_send_typing(FEED, feed):
                 for channel in channels:
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
