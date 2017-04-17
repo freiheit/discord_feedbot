@@ -177,8 +177,8 @@ def extract_best_item_date(item):
                 if date_obj.tzinfo is None:
                     timezone.localize(date_obj)
 
-                #result['date'] = item[date_field]
-                #result['date_parsed'] = item[date_field+"_parsed"]
+                # result['date'] = item[date_field]
+                # result['date_parsed'] = item[date_field+"_parsed"]
 
                 # Standardize stored time based on the timezone in the
                 # ini file
@@ -231,29 +231,28 @@ def process_field(field, item, FEED, channel):
 
         # If there's any markdown on the field, return field with that
         # markup on it:
-        field = highlightmatch.group(2)
+        begin, field, end = highlightmatch.groups()
         if field in item:
-            if field == 'link':
-                return highlightmatch.group(
-                    1) + urljoin(FEED.get('feed_url'), item[field]) + highlightmatch.group(3)
+            if field == "link":
+                url = urljoin(FEED.get("feed-url"), item[field])
+                return begin + url + end
             else:
-                return highlightmatch.group(
-                    1) + item[field] + highlightmatch.group(3)
+                return begin + item[field] + end
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif bigcodematch is not None:
         logger.debug("%s:process_field:%s:isCodeBlock", FEED, field)
 
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
-            return '```\n' + item[field] + '\n```'
+            return "```\n%s\n```" % (item[field])
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif codematch is not None:
         logger.debug("%s:process_field:%s:isCode", FEED, field)
 
@@ -261,11 +260,11 @@ def process_field(field, item, FEED, channel):
         # separately:
         field = codematch.group(1)
         if field in item:
-            return '`' + item[field] + '`'
+            return "`%s`" % (item[field])
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif tagmatch is not None:
         logger.debug("%s:process_field:%s:isTag", FEED, field)
         field = tagmatch.group(1)
@@ -275,16 +274,15 @@ def process_field(field, item, FEED, channel):
             # Iterate through channel roles, see if a role is mentionable and
             # then substitute the role for its id
             for role in client.get_channel(channel['id']).server.roles:
+                rn = str(role.name)
                 taglist = [
-                    '<@&' +
-                    role.id +
-                    '>' if str(
-                        role.name) == str(i) else i for i in taglist]
-            return ', '.join(taglist)
+                    "<@&%s>" % (role.id) if rn == str(i) else i for i in taglist
+                ]
+                return ", ".join(taglist)
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     else:
         logger.debug("%s:process_field:%s:isPlain", FEED, field)
         # Just asking for plain field:
@@ -312,9 +310,8 @@ def process_field(field, item, FEED, channel):
                 markdownfield = re.sub('<[^<]+?>', '', markdownfield)
                 return markdownfield
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
 
 # This builds a message.
 #
@@ -439,12 +436,10 @@ def background_check_feed(conn, feed, asyncioloop):
                     try:
                         yield from client.send_typing(channel['object'])
                     except discord.errors.Forbidden:
-                        logger.error(feed + ':discord.errors.Forbidden')
-                        logger.error(sys.exc_info())
-                        logger.error(
-                            feed +
-                            ":Perhaps bot isn't allowed in this channel?")
-                        logger.error(channel)
+                        logger.exception(
+                            "%s:%s:forbidden - is bot allowed in channel?",
+                            feed, channel
+                        )
 
             http_headers = {}
             http_headers['User-Agent'] = MAIN.get('UserAgent',
@@ -751,17 +746,19 @@ def background_check_feed(conn, feed, asyncioloop):
                          str(rss_refresh_time) + ' seconds')
             yield from asyncio.sleep(rss_refresh_time)
 
-# When client is "ready", set gameplayed, set avatar, and log startup...
-
 
 @client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
+    # set current game played
     gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
     if gameplayed:
-        yield from client.change_presence(game=discord.Game(name=gameplayed), status=discord.Status.idle)
+        yield from client.change_presence(
+            game=discord.Game(name=gameplayed), status=discord.Status.idle
+        )
 
+    # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
     if avatar_file_name:
         with open(avatar_file_name, "rb") as f:
