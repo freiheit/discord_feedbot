@@ -203,7 +203,7 @@ def extract_best_item_date(item):
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
 def process_field(field, item, FEED, channel):
-    logger.debug(feed + ':process_field:' + field + ': started')
+    logger.debug("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get('item_url_base', None)
     if field == 'guid' and item_url_base is not None:
@@ -214,8 +214,7 @@ def process_field(field, item, FEED, channel):
                 'process_field:guid:no such field; try show_sample_entry.py on feed')
             return ''
 
-    logger.debug(feed + ':process_field:' + field +
-                 ': checking against regexes')
+    logger.debug("%s:process_field:%s: checking regexes", FEED, field)
     stringmatch = re.match('^"(.+?)"$', field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$', field)
     bigcodematch = re.match('^```(.+)```$', field)
@@ -225,10 +224,10 @@ def process_field(field, item, FEED, channel):
 
     if stringmatch is not None:
         # Return an actual string literal from config:
-        logger.debug(feed + ':process_field:' + field + ':isString')
+        logger.debug("%s:process_field:%s:isString", FEED, field)
         return stringmatch.group(1)  # string from config
     elif highlightmatch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isHighlight')
+        logger.debug("%s:process_field:%s:isHighlight", FEED, field)
 
         # If there's any markdown on the field, return field with that
         # markup on it:
@@ -245,7 +244,8 @@ def process_field(field, item, FEED, channel):
                          ':no such field; try show_sample_entry.py on feed')
             return ''
     elif bigcodematch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isCodeBlock')
+        logger.debug("%s:process_field:%s:isCodeBlock", FEED, field)
+
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
@@ -255,7 +255,7 @@ def process_field(field, item, FEED, channel):
                          ':no such field; try show_sample_entry.py on feed')
             return ''
     elif codematch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isCode')
+        logger.debug("%s:process_field:%s:isCode", FEED, field)
 
         # Since code chunk can't have other highlights, also do them
         # separately:
@@ -267,7 +267,7 @@ def process_field(field, item, FEED, channel):
                          ':no such field; try show_sample_entry.py on feed')
             return ''
     elif tagmatch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isTag')
+        logger.debug("%s:process_field:%s:isTag", FEED, field)
         field = tagmatch.group(1)
         if field in item:
             # Assuming tags are ', ' separated
@@ -286,7 +286,7 @@ def process_field(field, item, FEED, channel):
                          ':no such field; try show_sample_entry.py on feed')
             return ''
     else:
-        logger.debug(feed + ':process_field:' + field + ':isPlain')
+        logger.debug("%s:process_field:%s:isPlain", FEED, field)
         # Just asking for plain field:
         if field in item:
             # If field is special field "link",
@@ -333,8 +333,7 @@ def build_message(FEED, item, channel):
     ).split(',')
     # Extract fields in order
     for field in fieldlist:
-        logger.debug(feed + ':item:build_message:' +
-                     field + ':added to message')
+        logger.debug("feed:item:build_message:%s:added to message", field)
         message += process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
