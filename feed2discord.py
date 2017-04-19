@@ -68,12 +68,15 @@ class ImproperlyConfigured(Exception):
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+HOME_DIR = os.path.expanduser("~")
 
 DEFAULT_CONFIG_PATHS = [
-    os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
+    os.path.join(HOME_DIR, ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
+    os.path.join("feed2discord.local.ini"),
+    os.path.join("/etc/feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.ini"),
+    os.path.join("feed2discord.ini"),
 ]
 
 
