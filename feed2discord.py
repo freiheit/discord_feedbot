@@ -28,7 +28,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "1.0"
+__version__ = "2.4rc1"
 
 
 PROG_NAME = "feedbot"
