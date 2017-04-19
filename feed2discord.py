@@ -3,25 +3,59 @@
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
-# We do the config stuff very first, so that we can pull debug from
-# there
-import configparser
-import feedparser
-import html2text
+import asyncio
 import logging
 import os
-import pytz
+import random
 import re
 import sqlite3
 import sys
 import time
-import traceback
 import warnings
-from aiohttp.web_exceptions import HTTPError, HTTPNotModified
+
+from argparse import ArgumentParser
+from configparser import ConfigParser
 from datetime import datetime
-from dateutil.parser import parse as parse_datetime
+from importlib import reload
 from urllib.parse import urljoin
-from random import uniform
+
+import aiohttp
+import discord
+import feedparser
+
+from aiohttp.web_exceptions import HTTPError, HTTPNotModified
+from dateutil.parser import parse as parse_datetime
+from html2text import HTML2Text
+
+
+__version__ = "1.0"
+
+
+PROG_NAME = "feedbot"
+USER_AGENT = "%s/%s" % (PROG_NAME, __version__)
+
+SQL_CREATE_FEED_INFO_TBL = """
+CREATE TABLE IF NOT EXISTS feed_info (
+    feed text PRIMARY KEY,
+    url text UNIQUE,
+    lastmodified text,
+    etag text
+)
+"""
+
+SQL_CREATE_FEED_ITEMS_TBL = """
+CREATE TABLE IF NOT EXISTS feed_items (
+    id text PRIMARY KEY,
+    published text,
+    title text,
+    url text,
+    reposted text
+)
+"""
+
+SQL_CLEAN_OLD_ITEMS = """
+DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 365
+"""
 
 
 if not sys.version_info[:2] >= (3, 4):
@@ -29,79 +63,112 @@ if not sys.version_info[:2] >= (3, 4):
     exit(1)
 
 
+class ImproperlyConfigured(Exception):
+    pass
+
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Parse the config and stick in global "config" var.
-config = configparser.ConfigParser()
-for inifile in [
-    os.path.join(os.path.expanduser("~"), ".feed2discord.local.ini"),
+
+DEFAULT_CONFIG_PATHS = [
     os.path.join(os.path.expanduser("~"), ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join("feed2discord.local.ini"),
     os.path.join(BASE_DIR, "feed2discord.ini"),
-    os.path.join("feed2discord.ini"),
-]:
-    if os.path.isfile(inifile):
-        if "local" not in inifile:
-            print("WARNING: copy feed2discord.local.ini and edit that.")
-            print(
-                "Don't commit and push a feed2discord.ini with a login_token to github.")
-            sleep(10)
-        config.read(inifile)
-        break  # First config file wins
+]
+
+
+def parse_args():
+    version = "%(prog)s {}".format(__version__)
+    p = ArgumentParser(prog=PROG_NAME)
+    p.add_argument("--version", action="version", version=version)
+    p.add_argument("--config")
+
+    return p.parse_args()
+
+
+def get_config():
+    args = parse_args()
+    config = ConfigParser()
+    if args.config:
+        config.read(args.config)
+    else:
+        for path in DEFAULT_CONFIG_PATHS:
+            if os.path.isfile(path):
+                config.read(path)
+                break
+        else:
+            raise ImproperlyConfigured("No configuration file found.")
+
+    debug = config["MAIN"].getint("debug", 0)
+
+    if debug:
+        os.environ["PYTHONASYNCIODEBUG"] = "1"
+        # The AIO modules need to be reloaded because of the new env var
+        reload(asyncio)
+        reload(aiohttp)
+        reload(discord)
+
+    if debug >= 3:
+        log_level = logging.DEBUG
+    elif debug >= 2:
+        log_level = logging.INFO
+    else:
+        log_level = logging.WARNING
+
+    logging.basicConfig(level=log_level)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(log_level)
+    warnings.resetwarnings()
+
+    return config, logger
+
+
+def get_timezone(config):
+    import pytz
+
+    tzstr = config["MAIN"].get("timezone", "utc")
+    # This has to work on both windows and unix
+    try:
+        timezone = pytz.timezone(tzstr)
+    except Exception:
+        timezone = pytz.utc
+
+    return timezone
+
+
+def get_feeds_config(config):
+    feeds = list(config.sections())
+
+    # remove non-feed sections
+    feeds.remove("MAIN")
+    feeds.remove("CHANNELS")
+
+    return feeds
+
+
+def get_sqlite_connection(config):
+    db_path = config["MAIN"].get("db_path", "feed2discord.db")
+    conn = sqlite3.connect(db_path)
+
+    # If our two tables don't exist, create them.
+    conn.execute(SQL_CREATE_FEED_INFO_TBL)
+    conn.execute(SQL_CREATE_FEED_ITEMS_TBL)
+
+    # Clean out *some* entries that are over 1 year old...
+    # Doing this cleanup at start time because some feeds
+    # do contain very old items and we don't want to keep
+    # re-evaluating them.
+    conn.execute(SQL_CLEAN_OLD_ITEMS)
+
+    return conn
+
+
+config, logger = get_config()
 
 # Make main config area global, since used everywhere/anywhere
 MAIN = config['MAIN']
+TIMEZONE = get_timezone(config)
 
-# set global debug verbosity level.
-debug = MAIN.getint('debug', 0)
-
-# If debug is on, turn on the asyncio debug
-if debug:
-    # needs to be set before asyncio is pulled in
-    os.environ['PYTHONASYNCIODEBUG'] = '1'
-
-# import those last modules that had to be done after the
-# os.environ thing above
-import aiohttp
-import asyncio
-import discord
-
-# Tell logging module about my debug level
-if debug >= 3:
-    logging.basicConfig(level=logging.DEBUG)
-elif debug >= 2:
-    logging.basicConfig(level=logging.INFO)
-else:
-    logging.basicConfig(level=logging.WARNING)
-
-# Create global logger object
-logger = logging.getLogger(__name__)
-
-# And finish telling logger module about my debug level
-if debug >= 1:
-    logger.setLevel(logging.DEBUG)
-else:
-    logger.setLevel(logging.INFO)
-
-warnings.resetwarnings()
-
-# Because windows hates you...
-# More complicated way to set the timezone stuff, but works on windows
-# and unix.
-tzstr = MAIN.get('timezone', 'utc')
-try:
-    timezone = pytz.timezone(tzstr)
-except Exception as e:
-    timezone = pytz.utc
-
-db_path = MAIN.get('db_path', 'feed2discord.db')
-
-# Parse out total list of feeds
-feeds = config.sections()
-# these are non-feed sections:
-feeds.remove('MAIN')
-feeds.remove('CHANNELS')
 
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
@@ -110,71 +177,34 @@ feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 # set up a single http client for everything to use.
 httpclient = aiohttp.ClientSession()
 
-# global database thing
-conn = sqlite3.connect(db_path)
-
-# If our two tables don't exist, create them.
-conn.execute('''CREATE TABLE IF NOT EXISTS feed_info
-              (feed text PRIMARY KEY,
-              url text UNIQUE,
-              lastmodified text,
-              etag text)''')
-
-conn.execute('''CREATE TABLE IF NOT EXISTS feed_items
-              (id text PRIMARY KEY,
-               published text,
-               title text,
-               url text,reposted text)''')
-
-# Clean out *some* entries that are over 1 year old...
-# Doing this cleanup at start time because some feeds
-# do contain very old items and we don't want to keep
-# re-evaluating them.
-conn.execute('''DELETE FROM feed_items
-               where
-               (julianday() - julianday(published)) > 366''')
-
-
 # global discord client object
 client = discord.Client()
 
-# This function loops through all the common date fields for an item in
-# a feed, and extracts the "best" one.  Falls back to "now" if nothing
-# is found.
-DATE_FIELDS = ('published', 'pubDate', 'date', 'created', 'updated')
 
-
-def extract_best_item_date(item):
-    global timezone
-    result = {}
-
-    # Look for something vaguely timestamp-ish.
-    for date_field in DATE_FIELDS:
+def extract_best_item_date(item, tzinfo):
+    # This function loops through all the common date fields for an item in
+    # a feed, and extracts the "best" one.  Falls back to "now" if nothing
+    # is found.
+    fields = ("published", "pubDate", "date", "created", "updated")
+    for date_field in fields:
         if date_field in item and len(item[date_field]) > 0:
             try:
                 date_obj = parse_datetime(item[date_field])
 
                 if date_obj.tzinfo is None:
-                    timezone.localize(date_obj)
+                    tzinfo.localize(date_obj)
 
-                #result['date'] = item[date_field]
-                #result['date_parsed'] = item[date_field+"_parsed"]
-
-                # Standardize stored time based on the timezone in the
-                # ini file
-                result['date'] = date_obj.strftime("%a %b %d %H:%M:%S %Z %Y")
-                result['date_parsed'] = date_obj
-
-                return result
+                return date_obj
             except Exception:
                 pass
 
     # No potentials found, default to current timezone's "now"
-    curtime = timezone.localize(datetime.now())
-    result['date'] = curtime.strftime("%a %b %d %H:%M:%S %Z %Y")
-    result['date_parsed'] = curtime
+    return tzinfo.localize(datetime.now())
 
-    return result
+
+def should_send_typing(conf, feed_name):
+    global_send_typing = conf.getint("send_typing", 0)
+    return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
 
 
 # This looks at the field from the config, and returns the processed string
@@ -183,7 +213,7 @@ def extract_best_item_date(item):
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
 def process_field(field, item, FEED, channel):
-    logger.debug(feed + ':process_field:' + field + ': started')
+    logger.debug("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get('item_url_base', None)
     if field == 'guid' and item_url_base is not None:
@@ -194,8 +224,7 @@ def process_field(field, item, FEED, channel):
                 'process_field:guid:no such field; try show_sample_entry.py on feed')
             return ''
 
-    logger.debug(feed + ':process_field:' + field +
-                 ': checking against regexes')
+    logger.debug("%s:process_field:%s: checking regexes", FEED, field)
     stringmatch = re.match('^"(.+?)"$', field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$', field)
     bigcodematch = re.match('^```(.+)```$', field)
@@ -205,49 +234,49 @@ def process_field(field, item, FEED, channel):
 
     if stringmatch is not None:
         # Return an actual string literal from config:
-        logger.debug(feed + ':process_field:' + field + ':isString')
+        logger.debug("%s:process_field:%s:isString", FEED, field)
         return stringmatch.group(1)  # string from config
     elif highlightmatch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isHighlight')
+        logger.debug("%s:process_field:%s:isHighlight", FEED, field)
 
         # If there's any markdown on the field, return field with that
         # markup on it:
-        field = highlightmatch.group(2)
+        begin, field, end = highlightmatch.groups()
         if field in item:
-            if field == 'link':
-                return highlightmatch.group(
-                    1) + urljoin(FEED.get('feed_url'), item[field]) + highlightmatch.group(3)
+            if field == "link":
+                url = urljoin(FEED.get("feed-url"), item[field])
+                return begin + url + end
             else:
-                return highlightmatch.group(
-                    1) + item[field] + highlightmatch.group(3)
+                return begin + item[field] + end
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif bigcodematch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isCodeBlock')
+        logger.debug("%s:process_field:%s:isCodeBlock", FEED, field)
+
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
-            return '```\n' + item[field] + '\n```'
+            return "```\n%s\n```" % (item[field])
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif codematch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isCode')
+        logger.debug("%s:process_field:%s:isCode", FEED, field)
 
         # Since code chunk can't have other highlights, also do them
         # separately:
         field = codematch.group(1)
         if field in item:
-            return '`' + item[field] + '`'
+            return "`%s`" % (item[field])
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif tagmatch is not None:
-        logger.debug(feed + ':process_field:' + field + ':isTag')
+        logger.debug("%s:process_field:%s:isTag", FEED, field)
         field = tagmatch.group(1)
         if field in item:
             # Assuming tags are ', ' separated
@@ -255,18 +284,17 @@ def process_field(field, item, FEED, channel):
             # Iterate through channel roles, see if a role is mentionable and
             # then substitute the role for its id
             for role in client.get_channel(channel['id']).server.roles:
+                rn = str(role.name)
                 taglist = [
-                    '<@&' +
-                    role.id +
-                    '>' if str(
-                        role.name) == str(i) else i for i in taglist]
-            return ', '.join(taglist)
+                    "<@&%s>" % (role.id) if rn == str(i) else i for i in taglist
+                ]
+                return ", ".join(taglist)
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     else:
-        logger.debug(feed + ':process_field:' + field + ':isPlain')
+        logger.debug("%s:process_field:%s:isPlain", FEED, field)
         # Just asking for plain field:
         if field in item:
             # If field is special field "link",
@@ -276,7 +304,7 @@ def process_field(field, item, FEED, channel):
             # Else assume it's a "summary" or "content" or whatever field
             # and turn HTML into markdown and don't add any markup:
             else:
-                htmlfixer = html2text.HTML2Text()
+                htmlfixer = HTML2Text()
                 logger.debug(htmlfixer)
                 htmlfixer.ignore_links = True
                 htmlfixer.ignore_images = True
@@ -292,9 +320,8 @@ def process_field(field, item, FEED, channel):
                 markdownfield = re.sub('<[^<]+?>', '', markdownfield)
                 return markdownfield
         else:
-            logger.error('process_field:' + field +
-                         ':no such field; try show_sample_entry.py on feed')
-            return ''
+            logger.error("process_field:%s:no such field", field)
+            return ""
 
 # This builds a message.
 #
@@ -313,8 +340,7 @@ def build_message(FEED, item, channel):
     ).split(',')
     # Extract fields in order
     for field in fieldlist:
-        logger.debug(feed + ':item:build_message:' +
-                     field + ':added to message')
+        logger.debug("feed:item:build_message:%s:added to message", field)
         message += process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
@@ -345,18 +371,19 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
 
 @asyncio.coroutine
 def actually_send_message(channel, message, delay, FEED, feed):
-    logger.debug(feed + ':' + channel['name'] + ':' + 'sleeping for ' +
-                 str(delay) + ' seconds before sending message')
-    if FEED.getint(feed + '.send_typing', FEED.getint('send_typing', 0)) >= 1:
-        yield from client.send_typing(channel['object'])
+    logger.debug(
+        "%s:%s:sleeping for %i seconds before sending message",
+        feed, channel["name"], delay
+    )
+
+    if should_send_typing(FEED, feed):
+        yield from client.send_typing(channel["object"])
     yield from asyncio.sleep(delay)
 
-    logger.debug(feed + ':' + channel['name'] + ':actually sending message')
-    if FEED.getint(feed + '.send_typing', FEED.getint('send_typing', 0)) >= 1:
-        yield from client.send_typing(channel['object'])
-    yield from client.send_message(channel['object'], message)
-    logger.debug(feed + ':' + channel['name'] + ':message sent')
-    logger.debug(message)
+    logger.debug("%s:%s:actually sending message", feed, channel["name"])
+    yield from client.send_message(channel["object"], message)
+
+    logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
 
 # The main work loop
 # One of these is run for each feed.
@@ -365,14 +392,15 @@ def actually_send_message(channel, message, delay, FEED, feed):
 
 
 @asyncio.coroutine
-def background_check_feed(feed, asyncioloop):
-    global timezone
+def background_check_feed(conn, feed, asyncioloop):
     logger.info(feed + ': Starting up background_check_feed')
 
     # Try to wait until Discord client has connected, etc:
     yield from client.wait_until_ready()
     # make sure debug output has this check run in the right order...
     yield from asyncio.sleep(1)
+
+    user_agent = config["MAIN"].get("user_agent", USER_AGENT)
 
     # just a bit easier to use...
     FEED = config[feed]
@@ -398,7 +426,7 @@ def background_check_feed(feed, asyncioloop):
         )
 
     if start_skew > 0:
-        sleep_time = uniform(start_skew_min, start_skew)
+        sleep_time = random.uniform(start_skew_min, start_skew)
         logger.info(feed + ':start_skew:sleeping for ' + str(sleep_time))
         yield from asyncio.sleep(sleep_time)
 
@@ -411,25 +439,19 @@ def background_check_feed(feed, asyncioloop):
 
             # If send_typing is on for the feed, send a little "typing ..."
             # whenever a feed is being worked on.  configurable per-room
-            if FEED.getint(
-                    feed + '.send_typing',
-                    FEED.getint('send_typing', 0)) >= 1:
+            if should_send_typing(FEED, feed):
                 for channel in channels:
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
                     try:
                         yield from client.send_typing(channel['object'])
                     except discord.errors.Forbidden:
-                        logger.error(feed + ':discord.errors.Forbidden')
-                        logger.error(sys.exc_info())
-                        logger.error(
-                            feed +
-                            ":Perhaps bot isn't allowed in this channel?")
-                        logger.error(channel)
+                        logger.exception(
+                            "%s:%s:forbidden - is bot allowed in channel?",
+                            feed, channel
+                        )
 
-            http_headers = {}
-            http_headers['User-Agent'] = MAIN.get('UserAgent',
-                                                  'feed2discord/1.0')
+            http_headers = {"User-Agent": user_agent}
 
             # Download the actual feed, if changed since last fetch
 
@@ -543,9 +565,7 @@ def background_check_feed(feed, asyncioloop):
             # Use reversed to start with end, which is usually oldest
             logger.debug(feed + ':processing entries')
             for item in reversed(feed_data.entries):
-                logger.debug(feed + ':item:processing this entry')
-                if debug > 1:
-                    logger.debug(item)  # can be very noisy
+                logger.debug("%s:item:processing this entry:%r", feed, item)
 
                 # Pull out the unique id, or just give up on this item.
                 id = ''
@@ -560,9 +580,8 @@ def background_check_feed(feed, asyncioloop):
                     continue
 
                 # Get our best date out, in both raw and parsed form
-                pubDateDict = extract_best_item_date(item)
-                pubDate = pubDateDict['date']
-                pubDate_parsed = pubDateDict['date_parsed']
+                pubdate = extract_best_item_date(item, TIMEZONE)
+                pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
                 logger.debug(feed + ':item:id:' + id)
                 logger.debug(feed +
@@ -580,7 +599,7 @@ def background_check_feed(feed, asyncioloop):
                     # Store info about this item, so next time we skip it:
                     cursor.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
-                        [id, pubDate])
+                        [id, pubdate_fmt])
                     conn.commit()
 
                     # Doing some crazy date math stuff...
@@ -588,8 +607,8 @@ def background_check_feed(feed, asyncioloop):
                     # much stuff into a room, but is also a useful safety
                     # measure in case a feed suddenly reverts to something
                     # ancient or other weird problems...
-                    time_since_published = timezone.localize(
-                        datetime.now()) - pubDate_parsed.astimezone(timezone)
+                    time_since_published = TIMEZONE.localize(
+                        datetime.now()) - pubdate.astimezone(TIMEZONE)
 
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed + ':item:fresh and ready for parsing')
@@ -639,8 +658,7 @@ def background_check_feed(feed, asyncioloop):
                                     item['title'] +
                                     ' field ' +
                                     filter_field)
-                                regexmatch = re.search(
-                                    regexpat, item[filter_field])
+                                regexmatch = re.search(regexpat, item[filter_field])
                                 if regexmatch is None:
                                     include = True
                                     logger.info(
@@ -672,24 +690,12 @@ def background_check_feed(feed, asyncioloop):
 
                     else:
                         # Logs of debugging info for date handling stuff...
-                        logger.info(feed + ':too old; skipping')
-                        logger.debug(feed + ':now:' + str(time.time()))
-                        logger.debug(feed + ':now:gmtime:' +
-                                     str(time.gmtime()))
-
-                        logger.debug(feed + ':now:localtime:' +
-                                     str(time.localtime()))
-                        logger.debug(feed +
-                                     ':timezone.localize(datetime.now()):' +
-                                     str(timezone.localize(datetime.now())))
-                        logger.debug(feed + ':pubDate:' + str(pubDate))
-                        logger.debug(feed + ':pubDate_parsed:' +
-                                     str(pubDate_parsed))
-                        logger.debug(feed +
-                                     ':pubDate_parsed.astimezome(timezone):' +
-                                     str(pubDate_parsed.astimezone(timezone)))
-                        if debug >= 4:
-                            logger.debug(item)
+                        logger.info("%s:too old, skipping", feed)
+                        logger.debug("%s:now:now:%s", feed, time.time())
+                        logger.debug("%s:now:gmtime:%s", feed, time.gmtime())
+                        logger.debug("%s:now:localtime:%s", feed, time.localtime())
+                        logger.debug("%s:pubDate:%r", feed, pubdate)
+                        logger.debug(item)
                 # seen before, move on:
                 else:
                     logger.debug(feed + ':item:' + id +
@@ -723,11 +729,8 @@ def background_check_feed(feed, asyncioloop):
                 ":Perhaps bot isn't allowed in one of the channels for this feed?")
             # raise # or not? hmm...
         # unknown error: definitely give up and die and move on
-        except:
-            logger.error(feed + ':Unexpected error:')
-            # logger.error(sys.exc_info())
-            logger.error(traceback.format_exc())
-            logger.error(feed + ':giving up')
+        except Exception:
+            logger.exception("Unexpected error - giving up")
             raise
         # No matter what goes wrong, wait same time and try again
         finally:
@@ -735,17 +738,19 @@ def background_check_feed(feed, asyncioloop):
                          str(rss_refresh_time) + ' seconds')
             yield from asyncio.sleep(rss_refresh_time)
 
-# When client is "ready", set gameplayed, set avatar, and log startup...
-
 
 @client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
+    # set current game played
     gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
     if gameplayed:
-        yield from client.change_presence(game=discord.Game(name=gameplayed), status=discord.Status.idle)
+        yield from client.change_presence(
+            game=discord.Game(name=gameplayed), status=discord.Status.idle
+        )
 
+    # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
     if avatar_file_name:
         with open(avatar_file_name, "rb") as f:
@@ -758,9 +763,12 @@ def on_ready():
 def main():
     loop = asyncio.get_event_loop()
 
+    feeds = get_feeds_config(config)
+    conn = get_sqlite_connection(config)
+
     try:
         for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
+            loop.create_task(background_check_feed(conn, feed, loop))
         if "login_token" in MAIN:
             loop.run_until_complete(client.login(MAIN.get("login_token")))
         else:
@@ -776,20 +784,4 @@ def main():
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-
-    try:
-        # !!!  If you use in a library, you really need to do this for
-        # !!! loop
-        for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
-        if 'login_token' in MAIN:
-            loop.run_until_complete(client.login(MAIN.get('login_token')))
-        else:
-            loop.run_until_complete(client.login(MAIN.get('login_email'),
-                                                 MAIN.get('login_password')))
-        loop.run_until_complete(client.connect())
-    except Exception:
-        loop.run_until_complete(client.close())
-    finally:
-        loop.close()
+    main()
