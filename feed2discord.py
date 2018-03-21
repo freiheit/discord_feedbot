@@ -653,7 +653,7 @@ def background_check_feed(conn, feed, asyncioloop):
                                     ' field ' +
                                     filter_field)
                                 regexmatch = re.search(
-                                    regexpat, item[filter_field])
+                                    regexpat, process_field(filter_field, item, FEED, channel))
                                 if regexmatch is None:
                                     include = False
                                     logger.info(
@@ -673,7 +673,7 @@ def background_check_feed(conn, feed, asyncioloop):
                                     item['title'] +
                                     ' field ' +
                                     filter_field)
-                                regexmatch = re.search(regexpat, item[filter_field])
+                                regexmatch = re.search(regexpat, process_field(filter_field, item, FEED, channel))
                                 if regexmatch is None:
                                     include = True
                                     logger.info(
