@@ -94,3 +94,8 @@ If `now:localtime` doesn't look like your current time and/or `now:gmtime` doesn
 Workarounds:
 - set timezone to "UTC" and also run the script with the `TZ` environment variable set to `UTC`, in order to run this one program in UTC.
 - Set max_age to 86400 (24 hours) or higher. The max_age setting is mostly just there to keep the first run on a feed from spamming your channels. You can run once with output only to a test channel, then stop, reconfigure for real channels, and run again.
+
+## Support on Beerpay
+Hey dude! Help me out for a couple of :beers:!
+
+[![Beerpay](https://beerpay.io/freiheit/discord_feedbot/badge.svg?style=beer-square)](https://beerpay.io/freiheit/discord_feedbot)  [![Beerpay](https://beerpay.io/freiheit/discord_feedbot/make-wish.svg?style=flat-square)](https://beerpay.io/freiheit/discord_feedbot?focus=wish)
