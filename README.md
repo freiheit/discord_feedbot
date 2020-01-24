@@ -1,7 +1,7 @@
 # [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
 
 ![Feed Bot](avatars/avatar-angry-small.png)
-
+[![Run on Repl.it](https://repl.it/badge/github/freiheit/discord_feedbot)](https://repl.it/github/freiheit/discord_feedbot)
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
