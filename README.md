@@ -97,7 +97,7 @@ Workarounds:
 - set timezone to "UTC" and also run the script with the `TZ` environment variable set to `UTC`, in order to run this one program in UTC.
 - Set max_age to 86400 (24 hours) or higher. The max_age setting is mostly just there to keep the first run on a feed from spamming your channels. You can run once with output only to a test channel, then stop, reconfigure for real channels, and run again.
 
-## Support on Beerpay
-Hey dude! Help me out for a couple of :beers:!
+## Financial Support
+I have a very few costs associated with this project. If support exceeds my actual costs, I'll donate to BLM, EFF, ACLU or another 501(c)(3) near me.
 
-[![Beerpay](https://beerpay.io/freiheit/discord_feedbot/badge.svg?style=beer-square)](https://beerpay.io/freiheit/discord_feedbot)  [![Beerpay](https://beerpay.io/freiheit/discord_feedbot/make-wish.svg?style=flat-square)](https://beerpay.io/freiheit/discord_feedbot?focus=wish)
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)
