@@ -1,4 +1,4 @@
-# [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
+# [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
 ![Feed Bot](avatars/avatar-angry-small.png)
 
@@ -14,7 +14,9 @@ be a single bot.
 
 # Elite: Dangerous related Discord?
 
-If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Read more here: https://github.com/freiheit/discord_feedbot/wiki/Getting-my-feedbot-on-your-server
+If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want in your discord.
+
+(I have some other feeds, but E:D is the most thoroughly covered)
 
 ## Initial Setup
 
