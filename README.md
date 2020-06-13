@@ -1,4 +1,4 @@
-# [Discord RSS Bot](https://github.com/freiheit/discord_rss_bot)
+# [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
 ![Feed Bot](avatars/avatar-angry-small.png)
 
@@ -14,7 +14,9 @@ be a single bot.
 
 # Elite: Dangerous related Discord?
 
-If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Read more here: https://github.com/freiheit/discord_feedbot/wiki/Getting-my-feedbot-on-your-server
+If your Discord server is related to Elite: Dangerous, you may be able to use my feedbot instance instead of running your own copy. Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want in your discord.
+
+(I have some other feeds, but E:D is the most thoroughly covered)
 
 ## Initial Setup
 
@@ -94,3 +96,8 @@ If `now:localtime` doesn't look like your current time and/or `now:gmtime` doesn
 Workarounds:
 - set timezone to "UTC" and also run the script with the `TZ` environment variable set to `UTC`, in order to run this one program in UTC.
 - Set max_age to 86400 (24 hours) or higher. The max_age setting is mostly just there to keep the first run on a feed from spamming your channels. You can run once with output only to a test channel, then stop, reconfigure for real channels, and run again.
+
+## Financial Support
+I have a very few costs associated with this project. If support exceeds my actual costs, I'll donate to BLM, EFF, ACLU, my local bicycle advocacy group, a local group helping the houseless, or another non-profit of my choosing.
+
+[![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)

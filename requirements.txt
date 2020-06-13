@@ -3,6 +3,6 @@ feedparser==5.2.1
 html2text==2016.5.29
 python-dateutil==2.5.3
 pytz==2016.4
-requests==2.10.0
+requests>=2.20.0
 six==1.10.0
 ws4py==0.3.5

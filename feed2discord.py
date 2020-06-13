@@ -28,7 +28,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 
 PROG_NAME = "feedbot"
@@ -232,6 +232,7 @@ def process_field(field, item, FEED, channel):
     codematch = re.match('^`(.+)`$', field)
 
     tagmatch = re.match('^@(.+)$', field)  # new tag regex
+    dictmatch = re.match('^\[(.+)\](.+)\.(.+)$', field) # new dict regex
 
     if stringmatch is not None:
         # Return an actual string literal from config:
@@ -290,6 +291,17 @@ def process_field(field, item, FEED, channel):
                     "<@&%s>" % (role.id) if rn == str(i) else i for i in taglist
                 ]
                 return ", ".join(taglist)
+        else:
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
+    elif dictmatch is not None:
+        logger.debug("%s:process_field:%s:isDict", FEED, field)
+        delim = dictmatch.group(1)
+        field = dictmatch.group(2)
+        dictkey = dictmatch.group(3)
+        if field in item:
+            return delim.join([x[dictkey] for x in item[field]])
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
@@ -642,7 +654,7 @@ def background_check_feed(conn, feed, asyncioloop):
                                     ' field ' +
                                     filter_field)
                                 regexmatch = re.search(
-                                    regexpat, item[filter_field])
+                                    regexpat, process_field(filter_field, item, FEED, channel))
                                 if regexmatch is None:
                                     include = False
                                     logger.info(
@@ -662,7 +674,7 @@ def background_check_feed(conn, feed, asyncioloop):
                                     item['title'] +
                                     ' field ' +
                                     filter_field)
-                                regexmatch = re.search(regexpat, item[filter_field])
+                                regexmatch = re.search(regexpat, process_field(filter_field, item, FEED, channel))
                                 if regexmatch is None:
                                     include = True
                                     logger.info(
