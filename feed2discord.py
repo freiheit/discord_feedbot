@@ -177,8 +177,6 @@ TIMEZONE = get_timezone(config)
 # pythons:
 feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
-# set up a single http client for everything to use.
-httpclient = aiohttp.ClientSession()
 
 # global discord client object
 client = discord.Client()
@@ -397,6 +395,9 @@ def actually_send_message(channel, message, delay, FEED, feed):
 @asyncio.coroutine
 def background_check_feed(conn, feed, asyncioloop):
     logger.info(feed + ': Starting up background_check_feed')
+    
+    # Set up httpclient
+    httpclient = aiohttp.ClientSession()
 
     # Try to wait until Discord client has connected, etc:
     yield from client.wait_until_ready()
@@ -742,7 +743,7 @@ def background_check_feed(conn, feed, asyncioloop):
             yield from asyncio.sleep(rss_refresh_time)
 
 
-@client.async_event
+#@client.async_event
 def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
