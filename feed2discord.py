@@ -104,7 +104,7 @@ def get_config():
 
     debug = config["MAIN"].getint("debug", 0)
 
-    if debug:
+    if debug >= 1:
         os.environ["PYTHONASYNCIODEBUG"] = "1"
         # The AIO modules need to be reloaded because of the new env var
         reload(asyncio)
@@ -384,20 +384,22 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
 
 @asyncio.coroutine
 def actually_send_message(channel, message, delay, FEED, feed):
+    if should_send_typing(FEED, feed):
+        yield from client.send_typing(channel["object"])
+
     logger.debug(
         "%s:%s:sleeping for %i seconds before sending message",
         feed, channel["name"], delay
     )
 
-    if should_send_typing(FEED, feed):
-        yield from client.send_typing(channel["object"])
+    if delay > 0:
     yield from asyncio.sleep(delay)
 
     logger.debug("%s:%s:actually sending message", feed, channel["name"])
     msg = yield from client.send_message(channel["object"], message)
 
-    # if channel is news and we have manage_messsages, then "publish" so it goes to all servers
-    if channel["object"].is_news() and channel["object"].manage_messages():
+    # if publish=1, channel is news/announcement and we have manage_messsages, then "publish" so it goes to all servers
+    if config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1 and channel["object"].is_news() and channel["object"].manage_messages():
         yield from msg.publish()
     
     logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
