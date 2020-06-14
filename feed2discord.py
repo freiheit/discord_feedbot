@@ -18,6 +18,7 @@ from configparser import ConfigParser
 from datetime import datetime
 from importlib import reload
 from urllib.parse import urljoin
+from pprint import pformat
 
 import aiohttp
 import discord
@@ -104,7 +105,7 @@ def get_config():
 
     debug = config["MAIN"].getint("debug", 0)
 
-    if debug >= 1:
+    if debug >= 4:
         os.environ["PYTHONASYNCIODEBUG"] = "1"
         # The AIO modules need to be reloaded because of the new env var
         reload(asyncio)
@@ -115,8 +116,10 @@ def get_config():
         log_level = logging.DEBUG
     elif debug >= 2:
         log_level = logging.INFO
-    else:
+    elif debug >= 1:
         log_level = logging.WARNING
+    else:
+        log_level = logging.ERROR
 
     logging.basicConfig(level=log_level)
     logger = logging.getLogger(__name__)
@@ -151,7 +154,12 @@ def get_feeds_config(config):
 
 def get_sqlite_connection(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = sqlite3.connect(db_path)
+    conn = yield from sqlite3.connect(db_path)
+    return conn
+
+def sql_maintenance(config):
+    db_path = config["MAIN"].get("db_path", "feed2discord.db")
+    conn = yield from sqlite3.connect(db_path)
 
     # If our two tables don't exist, create them.
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
@@ -163,8 +171,7 @@ def get_sqlite_connection(config):
     # re-evaluating them.
     conn.execute(SQL_CLEAN_OLD_ITEMS)
 
-    return conn
-
+    conn.close()
 
 config, logger = get_config()
 
@@ -214,7 +221,7 @@ def should_send_typing(conf, feed_name):
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
 def process_field(field, item, FEED, channel):
-    logger.debug("%s:process_field:%s: started", FEED, field)
+    logger.info("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get('item_url_base', None)
     if field == 'guid' and item_url_base is not None:
@@ -225,7 +232,7 @@ def process_field(field, item, FEED, channel):
                 'process_field:guid:no such field; try show_sample_entry.py on feed')
             return ''
 
-    logger.debug("%s:process_field:%s: checking regexes", FEED, field)
+    logger.info("%s:process_field:%s: checking regexes", FEED, field)
     stringmatch = re.match('^"(.+?)"$', field)
     highlightmatch = re.match('^([*_~<]+)(.+?)([*_~>]+)$', field)
     bigcodematch = re.match('^```(.+)```$', field)
@@ -236,10 +243,10 @@ def process_field(field, item, FEED, channel):
 
     if stringmatch is not None:
         # Return an actual string literal from config:
-        logger.debug("%s:process_field:%s:isString", FEED, field)
+        logger.info("%s:process_field:%s:isString", FEED, field)
         return stringmatch.group(1)  # string from config
     elif highlightmatch is not None:
-        logger.debug("%s:process_field:%s:isHighlight", FEED, field)
+        logger.info("%s:process_field:%s:isHighlight", FEED, field)
 
         # If there's any markdown on the field, return field with that
         # markup on it:
@@ -255,7 +262,7 @@ def process_field(field, item, FEED, channel):
             return ""
 
     elif bigcodematch is not None:
-        logger.debug("%s:process_field:%s:isCodeBlock", FEED, field)
+        logger.info("%s:process_field:%s:isCodeBlock", FEED, field)
 
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
@@ -266,7 +273,7 @@ def process_field(field, item, FEED, channel):
             return ""
 
     elif codematch is not None:
-        logger.debug("%s:process_field:%s:isCode", FEED, field)
+        logger.info("%s:process_field:%s:isCode", FEED, field)
 
         # Since code chunk can't have other highlights, also do them
         # separately:
@@ -278,14 +285,14 @@ def process_field(field, item, FEED, channel):
             return ""
 
     elif tagmatch is not None:
-        logger.debug("%s:process_field:%s:isTag", FEED, field)
+        logger.info("%s:process_field:%s:isTag", FEED, field)
         field = tagmatch.group(1)
         if field in item:
             # Assuming tags are ', ' separated
             taglist = item[field].split(', ')
             # Iterate through channel roles, see if a role is mentionable and
             # then substitute the role for its id
-            for role in client.get_channel(channel['id']).server.roles:
+            for role in client.get_channel(channel.getint(id)).server.roles:
                 rn = str(role.name)
                 taglist = [
                     "<@&%s>" % (role.id) if rn == str(i) else i for i in taglist
@@ -296,7 +303,7 @@ def process_field(field, item, FEED, channel):
             return ""
 
     elif dictmatch is not None:
-        logger.debug("%s:process_field:%s:isDict", FEED, field)
+        logger.info("%s:process_field:%s:isDict", FEED, field)
         delim = dictmatch.group(1)
         field = dictmatch.group(2)
         dictkey = dictmatch.group(3)
@@ -307,7 +314,7 @@ def process_field(field, item, FEED, channel):
             return ""
 
     else:
-        logger.debug("%s:process_field:%s:isPlain", FEED, field)
+        logger.info("%s:process_field:%s:isPlain", FEED, field)
         # Just asking for plain field:
         if field in item:
             # If field is special field "link",
@@ -318,7 +325,7 @@ def process_field(field, item, FEED, channel):
             # and turn HTML into markdown and don't add any markup:
             else:
                 htmlfixer = HTML2Text()
-                logger.debug(htmlfixer)
+                logger.info(htmlfixer)
                 htmlfixer.ignore_links = True
                 htmlfixer.ignore_images = True
                 htmlfixer.ignore_emphasis = False
@@ -353,7 +360,7 @@ def build_message(FEED, item, channel):
     ).split(',')
     # Extract fields in order
     for field in fieldlist:
-        logger.debug("feed:item:build_message:%s:added to message", field)
+        logger.info("feed:item:build_message:%s:added to message", field)
         message += process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
@@ -368,16 +375,14 @@ def build_message(FEED, item, channel):
     return message
 
 # This schedules an 'actually_send_message' coroutine to run
-
-
 @asyncio.coroutine
 def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
     delay = FEED.getint(channel['name'] + '.delay', FEED.getint('delay', 0))
-    logger.debug(feed + ':' + channel['name'] +
+    logger.info(feed + ':' + channel['name'] +
                  ':scheduling message with delay of ' + str(delay))
     asyncioloop.create_task(
         actually_send_message(channel, message, delay, FEED, feed))
-    logger.debug(feed + ':' + channel['name'] + ':message scheduled')
+    logger.info(feed + ':' + channel['name'] + ':message scheduled')
 
 # Simply sleeps for delay and then sends message.
 
@@ -385,9 +390,9 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
 @asyncio.coroutine
 def actually_send_message(channel, message, delay, FEED, feed):
     if should_send_typing(FEED, feed):
-        yield from client.send_typing(channel["object"])
+        yield from channel["object"].send_typing()
 
-    logger.debug(
+    logger.info(
         "%s:%s:sleeping for %i seconds before sending message",
         feed, channel["name"], delay
     )
@@ -395,14 +400,17 @@ def actually_send_message(channel, message, delay, FEED, feed):
     if delay > 0:
         yield from asyncio.sleep(delay)
 
-    logger.debug("%s:%s:actually sending message", feed, channel["name"])
-    msg = yield from client.send_message(channel["object"], message)
+    logger.info("%s:%s:actually sending message", feed, channel["name"])
+    msg = yield from channel["object"].send(message)
 
     # if publish=1, channel is news/announcement and we have manage_messsages, then "publish" so it goes to all servers
-    if config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1 and channel["object"].is_news() and channel["object"].manage_messages():
-        yield from msg.publish()
+    if config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1 and channel["object"].is_news():
+        try:
+            yield from msg.publish()
+        except:
+            logger.info(feed + ': Could not publish message')
     
-    logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
+    logger.info("%s:%s:message sent: %r", feed, channel["name"], message)
 
 # The main work loop
 # One of these is run for each feed.
@@ -411,7 +419,8 @@ def actually_send_message(channel, message, delay, FEED, feed):
 
 
 @asyncio.coroutine
-def background_check_feed(conn, feed, asyncioloop):
+def background_check_feed(feed, asyncioloop):
+
     logger.info(feed + ': Starting up background_check_feed')
     
 
@@ -435,15 +444,25 @@ def background_check_feed(conn, feed, asyncioloop):
     # loop through all the channels this feed is configured to send to
     channels = []
     for key in FEED.get('channels').split(','):
-        logger.debug(feed + ': adding channel ' + key)
         # stick a dict in the channels array so we have more to work with
-        channels.append(
-            {
-                'object': discord.Object(id=config['CHANNELS'][key]),
-                'name': key,
-                'id': config['CHANNELS'][key],
-            }
-        )
+        channel_id  = config['CHANNELS'].getint(key)
+        logger.info(feed + ': adding channel ' + key + ':' + str(channel_id))
+
+        channel_obj = client.get_channel(channel_id)
+        logger.info(pformat(channel_obj))
+        if channel_obj is not None:
+            channels.append(
+                {
+                    'object': channel_obj,
+                    'name': key,
+                    'id': channel_id,
+                }
+            )
+            logger.info(feed + ': added channel ' + key)
+        else:
+            logger.warning(feed + ': did not add channel ' + key + '/' + str(channel_id) )
+            logger.warning(pformat(channel_obj))
+        
 
     if start_skew > 0:
         sleep_time = random.uniform(start_skew_min, start_skew)
@@ -451,7 +470,8 @@ def background_check_feed(conn, feed, asyncioloop):
         yield from asyncio.sleep(sleep_time)
 
     # Basically run forever
-    while not client.is_closed:
+    while True:
+    
         # And tries to catch all the exceptions and just keep going
         # (but see list of except/finally stuff below)
         try:
@@ -472,14 +492,23 @@ def background_check_feed(conn, feed, asyncioloop):
                         )
 
             http_headers = {"User-Agent": user_agent}
+        
+            db_path = config["MAIN"].get("db_path", "feed2discord.db")
+
+            # Debugging crazy issues
+            logger.info(feed + ":db_debug:db_path=" + db_path)
+
+            conn = sqlite3.connect(db_path)
 
             # Download the actual feed, if changed since last fetch
 
+            # Debugging crazy issues
+            logger.info(feed + ":db_debug:conn=" + type(conn).__name__)
+            
             # pull data about history of this *feed* from DB:
-            cursor = conn.cursor()
-            cursor.execute(
-                "select lastmodified,etag from feed_info where feed=? OR url=?", [
-                    feed, feed_url])
+            cursor = conn.execute(
+                "select lastmodified,etag from feed_info where feed=? OR url=?", 
+                [feed, feed_url] )
             data = cursor.fetchone()
 
             # If we've handled this feed before,
@@ -488,44 +517,41 @@ def background_check_feed(conn, feed, asyncioloop):
             # add "If-Modified-Since" to headers.
             if data is None:  # never handled this feed before...
                 logger.info(feed + ':looks like updated version. saving info')
-                cursor.execute(
+                conn.execute(
                     "REPLACE INTO feed_info (feed,url) VALUES (?,?)",
                     [feed, feed_url])
                 conn.commit()
-                logger.debug(feed + ':feed info saved')
+                logger.info(feed + ':feed info saved')
             else:
-                logger.debug(feed +
+                logger.info(feed +
                              ':setting up extra headers for HTTP request.')
-                logger.debug(data)
+                logger.info(data)
                 lastmodified = data[0]
                 etag = data[1]
                 if lastmodified is not None and len(lastmodified):
-                    logger.debug(feed +
+                    logger.info(feed +
                                  ':adding header If-Modified-Since: ' +
                                  lastmodified)
                     http_headers['If-Modified-Since'] = lastmodified
                 else:
-                    logger.debug(feed + ':no stored lastmodified')
+                    logger.info(feed + ':no stored lastmodified')
                 if etag is not None and len(etag):
-                    logger.debug(feed + ':adding header ETag: ' + etag)
+                    logger.info(feed + ':adding header ETag: ' + etag)
                     http_headers['ETag'] = etag
                 else:
-                    logger.debug(feed + ':no stored ETag')
+                    logger.info(feed + ':no stored ETag')
 
 
             # Set up httpclient
             httpclient = aiohttp.ClientSession()
 
-            logger.debug(feed + ':sending http request for ' + feed_url)
+            logger.info(feed + ':sending http request for ' + feed_url)
             # Send actual request.  yield from can yield control to another
             # instance.
-            http_response = yield from httpclient.request('GET',
-                                                          feed_url,
-                                                          headers=http_headers)
+            http_response = yield from httpclient.get(feed_url, headers=http_headers)
                                                           
-            httpclient.close()
 
-            logger.debug(http_response)
+            logger.info(http_response)
 
             # First check that we didn't get a "None" response, since that's
             # some sort of internal error thing:
@@ -537,7 +563,7 @@ def background_check_feed(conn, feed, asyncioloop):
             # assume no new items, fall through rest of this and try again
             # later.
             elif http_response.status == 304:
-                logger.debug(feed + ':data is old; moving on')
+                logger.info(feed + ':data is old; moving on')
                 http_response.close()
                 raise HTTPNotModified()
             # If we get anything but a 200, that's a problem and we don't
@@ -545,54 +571,56 @@ def background_check_feed(conn, feed, asyncioloop):
             # Mostly handled different than 304/not-modified to make logging
             # clearer.
             elif http_response.status != 200:
-                logger.debug(feed + ':HTTP error not 200')
-                # + str(http_response.status))
-                # raise HTTPError()
+                logger.info(feed + ':HTTP error not 200')
+                http_response.close()
+                raise HTTPNotModified()
             else:
-                logger.debug(feed + ':HTTP success')
+                logger.info(feed + ':HTTP success')
 
             # pull data out of the http response
-            logger.debug(feed + ':reading http response')
+            logger.info(feed + ':reading http response')
             http_data = yield from http_response.read()
 
+            yield from httpclient.close()
+
             # parse the data from the http response with feedparser
-            logger.debug(feed + ':parsing http data')
+            logger.info(feed + ':parsing http data')
             feed_data = feedparser.parse(http_data)
-            logger.debug(feed + ':done fetching')
+            logger.info(feed + ':done fetching')
 
             # If we got an ETAG back in headers, store that, so we can
             # include on next fetch
             if 'ETAG' in http_response.headers:
                 etag = http_response.headers['ETAG']
-                logger.debug(feed + ':saving etag: ' + etag)
-                cursor.execute(
+                logger.info(feed + ':saving etag: ' + etag)
+                conn.execute(
                     "UPDATE feed_info SET etag=? where feed=? or url=?",
                     [etag, feed, feed_url])
                 conn.commit()
-                logger.debug(feed + ':etag saved')
+                logger.info(feed + ':etag saved')
             else:
-                logger.debug(feed + ':no etag')
+                logger.info(feed + ':no etag')
 
             # If we got a Last-Modified header back, store that, so we can
             # include on next fetch
             if 'LAST-MODIFIED' in http_response.headers:
                 modified = http_response.headers['LAST-MODIFIED']
-                logger.debug(feed + ':saving lastmodified: ' + modified)
-                cursor.execute(
+                logger.info(feed + ':saving lastmodified: ' + modified)
+                conn.execute(
                     "UPDATE feed_info SET lastmodified=? where feed=? or url=?", [
                         modified, feed, feed_url])
                 conn.commit()
-                logger.debug(feed + ':saved lastmodified')
+                logger.info(feed + ':saved lastmodified')
             else:
-                logger.debug(feed + ':no last modified date')
+                logger.info(feed + ':no last modified date')
 
             http_response.close()
 
             # Process all of the entries in the feed
             # Use reversed to start with end, which is usually oldest
-            logger.debug(feed + ':processing entries')
+            logger.info(feed + ':processing entries')
             for item in reversed(feed_data.entries):
-                logger.debug("%s:item:processing this entry:%r", feed, item)
+                logger.info("%s:item:processing this entry:%r", feed, item)
 
                 # Pull out the unique id, or just give up on this item.
                 id = ''
@@ -610,11 +638,11 @@ def background_check_feed(conn, feed, asyncioloop):
                 pubdate = extract_best_item_date(item, TIMEZONE)
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
-                logger.debug(feed + ':item:id:' + id)
-                logger.debug(feed +
+                logger.info(feed + ':item:id:' + id)
+                logger.info(feed +
                              ':item:checking database history for this item')
                 # Check DB for this item
-                cursor.execute(
+                cursor = conn.execute(
                     "SELECT published,title,url,reposted FROM feed_items WHERE id=?", [id])
                 data = cursor.fetchone()
 
@@ -624,7 +652,7 @@ def background_check_feed(conn, feed, asyncioloop):
                     logger.info(feed + ':item ' + id + ' unseen, processing:')
 
                     # Store info about this item, so next time we skip it:
-                    cursor.execute(
+                    conn.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
                         [id, pubdate_fmt])
                     conn.commit()
@@ -651,12 +679,12 @@ def background_check_feed(conn, feed, asyncioloop):
                             # Regex if channel exists
                             if (channel['name'] +
                                     '.filter') in FEED or 'filter' in FEED:
-                                logger.debug(
+                                logger.info(
                                     feed + ':item:running filter for' + channel['name'])
                                 regexpat = FEED.get(
                                     channel['name'] + '.filter',
                                     FEED.get('filter', '^.*$'))
-                                logger.debug(
+                                logger.info(
                                     feed +
                                     ':item:using filter:' +
                                     regexpat +
@@ -671,13 +699,13 @@ def background_check_feed(conn, feed, asyncioloop):
                                     logger.info(
                                         feed + ':item:failed filter for ' + channel['name'])
                             elif (channel['name'] + '.filter_exclude') in FEED or 'filter_exclude' in FEED:
-                                logger.debug(
+                                logger.info(
                                     feed + ':item:running exclude filter for' + channel['name'])
                                 regexpat = FEED.get(
                                     channel['name'] + '.filter_exclude',
                                     FEED.get('filter_exclude',
                                              '^.*$'))
-                                logger.debug(
+                                logger.info(
                                     feed +
                                     ':item:using filter_exclude:' +
                                     regexpat +
@@ -696,14 +724,14 @@ def background_check_feed(conn, feed, asyncioloop):
                                         feed + ':item:failed exclude filter for ' + channel['name'])
                             else:
                                 include = True  # redundant safety net
-                                logger.debug(
+                                logger.info(
                                     feed + ':item:no filter configured for' + channel['name'])
 
                             if include is True:
-                                logger.debug(
+                                logger.info(
                                     feed + ':item:building message for ' + channel['name'])
                                 message = build_message(FEED, item, channel)
-                                logger.debug(
+                                logger.info(
                                     feed + ':item:sending message (eventually) to ' + channel['name'])
                                 yield from send_message_wrapper(asyncioloop,
                                                                 FEED,
@@ -725,11 +753,11 @@ def background_check_feed(conn, feed, asyncioloop):
                         logger.debug(item)
                 # seen before, move on:
                 else:
-                    logger.debug(feed + ':item:' + id +
+                    logger.info(feed + ':item:' + id +
                                  ' seen before, skipping')
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
-            logger.debug(
+            logger.info(
                 feed + ':Headers indicate feed unchanged since last time fetched:')
             logger.debug(sys.exc_info())
         # Many feeds have random periodic problems that shouldn't cause
@@ -742,7 +770,7 @@ def background_check_feed(conn, feed, asyncioloop):
         # sqlite3 errors are probably really bad and we should just totally
         # give up on life
         except sqlite3.Error as sqlerr:
-            logger.error(feed + ':sqlite3 error: ')
+            logger.error(feed + ':sqlite error: ')
             logger.error(sys.exc_info())
             logger.error(sqlerr)
             raise
@@ -761,7 +789,7 @@ def background_check_feed(conn, feed, asyncioloop):
             raise
         # No matter what goes wrong, wait same time and try again
         finally:
-            logger.debug(feed + ':sleeping for ' +
+            logger.info(feed + ':sleeping for ' +
                          str(rss_refresh_time) + ' seconds')
             yield from asyncio.sleep(rss_refresh_time)
 
@@ -791,11 +819,11 @@ def main():
     loop = asyncio.get_event_loop()
 
     feeds = get_feeds_config(config)
-    conn = get_sqlite_connection(config)
+    sql_maintenance(config)
 
     try:
         for feed in feeds:
-            loop.create_task(background_check_feed(conn, feed, loop))
+            loop.create_task(background_check_feed(feed, loop))
         if "login_token" in MAIN:
             loop.run_until_complete(client.login(MAIN.get("login_token")))
         else:
