@@ -394,8 +394,12 @@ def actually_send_message(channel, message, delay, FEED, feed):
     yield from asyncio.sleep(delay)
 
     logger.debug("%s:%s:actually sending message", feed, channel["name"])
-    yield from client.send_message(channel["object"], message)
+    msg = yield from client.send_message(channel["object"], message)
 
+    # if channel is news and we have manage_messsages, then "publish" so it goes to all servers
+    if channel["object"].is_news() and channel["object"].manage_messages():
+        yield from msg.publish()
+    
     logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
 
 # The main work loop
