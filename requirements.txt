@@ -3,7 +3,7 @@ feedparser==5.2.1
 html2text==2020.1.16
 python-dateutil==2.8.1
 pytz==2020.1
-requests>=2.23.0
+requests==2.23.0
 six==1.15.0
 ws4py==0.5.1
 aiosqlite==0.13.0
