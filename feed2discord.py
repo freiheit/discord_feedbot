@@ -393,7 +393,7 @@ def actually_send_message(channel, message, delay, FEED, feed):
     )
 
     if delay > 0:
-    yield from asyncio.sleep(delay)
+        yield from asyncio.sleep(delay)
 
     logger.debug("%s:%s:actually sending message", feed, channel["name"])
     msg = yield from client.send_message(channel["object"], message)
@@ -414,8 +414,6 @@ def actually_send_message(channel, message, delay, FEED, feed):
 def background_check_feed(conn, feed, asyncioloop):
     logger.info(feed + ': Starting up background_check_feed')
     
-    # Set up httpclient
-    httpclient = aiohttp.ClientSession()
 
     # Try to wait until Discord client has connected, etc:
     yield from client.wait_until_ready()
@@ -514,12 +512,19 @@ def background_check_feed(conn, feed, asyncioloop):
                 else:
                     logger.debug(feed + ':no stored ETag')
 
+
+            # Set up httpclient
+            httpclient = aiohttp.ClientSession()
+
             logger.debug(feed + ':sending http request for ' + feed_url)
             # Send actual request.  yield from can yield control to another
             # instance.
             http_response = yield from httpclient.request('GET',
                                                           feed_url,
                                                           headers=http_headers)
+                                                          
+            httpclient.close()
+
             logger.debug(http_response)
 
             # First check that we didn't get a "None" response, since that's
