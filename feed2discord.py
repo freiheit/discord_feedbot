@@ -457,7 +457,7 @@ async def background_check_feed(feed, asyncioloop):
         logger.info(pformat(channel_obj))
         if channel_obj is not None:
             channels.append(
-                {"object": channel_obj, "name": key, "id": channel_id,}
+                {"object": channel_obj, "name": key, "id": channel_id}
             )
             logger.info(feed + ": added channel " + key)
         else:
