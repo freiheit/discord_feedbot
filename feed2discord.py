@@ -298,9 +298,7 @@ def process_field(field, item, FEED, channel):
             # then substitute the role for its id
             for role in client.get_channel(channel.getint(id)).server.roles:
                 rn = str(role.name)
-                taglist = [
-                    "<@&%s>" %
-                    (role.id) if rn == str(i) else i for i in taglist]
+                taglist = ["<@&%s>" % (role.id) if rn == str(i) else i for i in taglist]
                 return ", ".join(taglist)
         else:
             logger.error("process_field:%s:no such field", field)
@@ -383,16 +381,9 @@ def build_message(FEED, item, channel):
 async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
     delay = FEED.getint(channel["name"] + ".delay", FEED.getint("delay", 0))
     logger.info(
-        feed + ":" + channel["name"] +
-        ":scheduling message with delay of " + str(delay)
+        feed + ":" + channel["name"] + ":scheduling message with delay of " + str(delay)
     )
-    asyncioloop.create_task(
-        actually_send_message(
-            channel,
-            message,
-            delay,
-            FEED,
-            feed))
+    asyncioloop.create_task(actually_send_message(channel, message, delay, FEED, feed))
     logger.info(feed + ":" + channel["name"] + ":message scheduled")
 
 
@@ -466,7 +457,7 @@ async def background_check_feed(feed, asyncioloop):
         logger.info(pformat(channel_obj))
         if channel_obj is not None:
             channels.append(
-                {"object": channel_obj, "name": key, "id": channel_id, }
+                {"object": channel_obj, "name": key, "id": channel_id,}
             )
             logger.info(feed + ": added channel " + key)
         else:
@@ -519,8 +510,9 @@ async def background_check_feed(feed, asyncioloop):
 
             # pull data about history of this *feed* from DB:
             cursor = conn.execute(
-                "select lastmodified,etag from feed_info where feed=? OR url=?", [
-                    feed, feed_url], )
+                "select lastmodified,etag from feed_info where feed=? OR url=?",
+                [feed, feed_url],
+            )
             data = cursor.fetchone()
 
             # If we've handled this feed before,
@@ -530,22 +522,19 @@ async def background_check_feed(feed, asyncioloop):
             if data is None:  # never handled this feed before...
                 logger.info(feed + ":looks like updated version. saving info")
                 conn.execute(
-                    "REPLACE INTO feed_info (feed,url) VALUES (?,?)", [
-                        feed, feed_url]
+                    "REPLACE INTO feed_info (feed,url) VALUES (?,?)", [feed, feed_url]
                 )
                 conn.commit()
                 logger.info(feed + ":feed info saved")
             else:
-                logger.info(
-                    feed + ":setting up extra headers for HTTP request.")
+                logger.info(feed + ":setting up extra headers for HTTP request.")
                 logger.info(data)
                 lastmodified = data[0]
                 etag = data[1]
                 if lastmodified is not None and len(lastmodified):
                     logger.info(
-                        feed +
-                        ":adding header If-Modified-Since: " +
-                        lastmodified)
+                        feed + ":adding header If-Modified-Since: " + lastmodified
+                    )
                     http_headers["If-Modified-Since"] = lastmodified
                 else:
                     logger.info(feed + ":no stored lastmodified")
@@ -620,8 +609,9 @@ async def background_check_feed(feed, asyncioloop):
                 modified = http_response.headers["LAST-MODIFIED"]
                 logger.info(feed + ":saving lastmodified: " + modified)
                 conn.execute(
-                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?", [
-                        modified, feed, feed_url], )
+                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
+                    [modified, feed, feed_url],
+                )
                 conn.commit()
                 logger.info(feed + ":saved lastmodified")
             else:
@@ -659,11 +649,12 @@ async def background_check_feed(feed, asyncioloop):
                 )
 
                 logger.info(feed + ":item:id:" + id)
-                logger.info(
-                    feed + ":item:checking database history for this item")
+                logger.info(feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
-                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?", [id], )
+                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
+                    [id],
+                )
                 data = cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
@@ -703,8 +694,7 @@ async def background_check_feed(feed, asyncioloop):
                                 channel["name"] + ".filter"
                             ) in FEED or "filter" in FEED:
                                 logger.info(
-                                    feed + ":item:running filter for" +
-                                    channel["name"]
+                                    feed + ":item:running filter for" + channel["name"]
                                 )
                                 regexpat = FEED.get(
                                     channel["name"] + ".filter",
@@ -721,8 +711,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
-                                        filter_field, item, FEED, channel),
+                                    process_field(filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
                                     include = False
@@ -754,8 +743,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
-                                        filter_field, item, FEED, channel),
+                                    process_field(filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
                                     include = True
@@ -796,34 +784,34 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                             else:
                                 logger.info(
-                                    feed + ":item:skipping item due to not passing filter for " + channel["name"])
+                                    feed
+                                    + ":item:skipping item due to not passing filter for "
+                                    + channel["name"]
+                                )
 
                     else:
                         # Logs of debugging info for date handling stuff...
                         logger.info("%s:too old, skipping", feed)
                         logger.debug("%s:now:now:%s", feed, time.time())
                         logger.debug("%s:now:gmtime:%s", feed, time.gmtime())
-                        logger.debug(
-                            "%s:now:localtime:%s", feed, time.localtime())
+                        logger.debug("%s:now:localtime:%s", feed, time.localtime())
                         logger.debug("%s:pubDate:%r", feed, pubdate)
                         logger.debug(item)
                 # seen before, move on:
                 else:
-                    logger.info(
-                        feed + ":item:" + id + " seen before, skipping")
+                    logger.info(feed + ":item:" + id + " seen before, skipping")
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.info(
-                feed +
-                ":Headers indicate feed unchanged since last time fetched:")
+                feed + ":Headers indicate feed unchanged since last time fetched:"
+            )
             logger.debug(sys.exc_info())
         # Many feeds have random periodic problems that shouldn't cause
         # permanent death:
         except HTTPError:
             logger.warn(feed + ":Unexpected HTTP error:")
             logger.warn(sys.exc_info())
-            logger.warn(
-                feed + ":Assuming error is transient and trying again later")
+            logger.warn(feed + ":Assuming error is transient and trying again later")
         # sqlite3 errors are probably really bad and we should just totally
         # give up on life
         except sqlite3.Error as sqlerr:
@@ -837,8 +825,9 @@ async def background_check_feed(feed, asyncioloop):
             logger.error(feed + ":discord.errors.Forbidden")
             logger.error(sys.exc_info())
             logger.error(
-                feed +
-                ":Perhaps bot isn't allowed in one of the channels for this feed?")
+                feed
+                + ":Perhaps bot isn't allowed in one of the channels for this feed?"
+            )
             # raise # or not? hmm...
         # unknown error: definitely give up and die and move on
         except Exception:
@@ -846,11 +835,7 @@ async def background_check_feed(feed, asyncioloop):
             raise
         # No matter what goes wrong, wait same time and try again
         finally:
-            logger.info(
-                feed +
-                ":sleeping for " +
-                str(rss_refresh_time) +
-                " seconds")
+            logger.info(feed + ":sleeping for " + str(rss_refresh_time) + " seconds")
             await asyncio.sleep(rss_refresh_time)
 
 
@@ -888,9 +873,7 @@ def main():
             loop.run_until_complete(client.login(MAIN.get("login_token")))
         else:
             loop.run_until_complete(
-                client.login(
-                    MAIN.get("login_email"),
-                    MAIN.get("login_password"))
+                client.login(MAIN.get("login_email"), MAIN.get("login_password"))
             )
         loop.run_until_complete(client.connect())
     except Exception:
