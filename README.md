@@ -102,6 +102,6 @@ Workarounds:
 - Set max_age to 86400 (24 hours) or higher. The max_age setting is mostly just there to keep the first run on a feed from spamming your channels. You can run once with output only to a test channel, then stop, reconfigure for real channels, and run again.
 
 ## Financial Support
-I have a very few costs associated with this project. If support exceeds my actual costs, I'll donate to BLM, EFF, ACLU, my local bicycle advocacy group, a local group helping the houseless, or another non-profit of my choosing.
+I have a very few costs associated with this project. I'm happy to donate my time for it, though.
 
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)
