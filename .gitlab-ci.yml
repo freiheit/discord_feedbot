@@ -1,3 +1,6 @@
+include:
+  - template: SAST.gitlab-ci.yml
+
 # This file is a template, and might need editing before it works on your project.
 # Read more about this feature here: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/
 #
