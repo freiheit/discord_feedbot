@@ -1,3 +1,5 @@
+[![pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/master/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/commits/master) [![coverage report](https://gitlab.com/ffreiheit/discord_feedbot/badges/master/coverage.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/commits/master)
+
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
 ![Feed Bot](avatars/avatar-angry-small.png)
