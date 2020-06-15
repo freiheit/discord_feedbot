@@ -29,7 +29,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "2.5.0"
+__version__ = "3.0.0"
 
 
 PROG_NAME = "feedbot"
@@ -59,8 +59,8 @@ DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 365
 """
 
 
-if not sys.version_info[:2] >= (3, 4):
-    print("Error: requires python 3.4 or newer")
+if not sys.version_info[:2] >= (3, 6):
+    print("Error: requires python 3.6 or newer")
     exit(1)
 
 
