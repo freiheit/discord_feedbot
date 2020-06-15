@@ -17,29 +17,28 @@ before_script:
 
 stages:
   - build
-  - Static Analysis
   - test
   - deploy
   - dast
 
 flake8:
-  stage: Static Analysis
+  stage: test
   allow_failure: true
   script:
   - flake8 --max-line-length=120 *.py
   
-mypy:
-  stage: Static Analysis
-  allow_failure: true
-  script:
-  - pwd
-  - ls -l
-  - python -m mypy feed2discord.py
-  - python -m mypy show_all_entries.py
-  - python -m mypy show_sample_entry.py
+#mypy:
+#  stage: test
+#  allow_failure: true
+#  script:
+#  - pwd
+#  - ls -l
+#  - python -m mypy feed2discord.py
+#  - python -m mypy show_all_entries.py
+#  - python -m mypy show_sample_entry.py
   
 pylint:
-  stage: Static Analysis
+  stage: test
   allow_failure: true
   script:
   - pylint -d C0301 *.py
