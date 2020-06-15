@@ -186,7 +186,8 @@ feedparser.PREFERRED_XML_PARSERS.remove('drv_libxml2')
 
 
 # global discord client object
-client = discord.Client()
+# No offline_members as we don't use them
+client = discord.Client(fetch_offline_members=False)
 
 
 def extract_best_item_date(item, tzinfo):
@@ -615,7 +616,6 @@ async def background_check_feed(feed, asyncioloop):
             # Use reversed to start with end, which is usually oldest
             logger.info(feed + ':processing entries')
             for item in reversed(feed_data.entries):
-                logger.info("%s:item:processing this entry:%r", feed, item)
 
                 # Pull out the unique id, or just give up on this item.
                 id = ''
@@ -629,9 +629,12 @@ async def background_check_feed(feed, asyncioloop):
                     logger.error(feed + ':item:no id, skipping')
                     continue
 
+
                 # Get our best date out, in both raw and parsed form
                 pubdate = extract_best_item_date(item, TIMEZONE)
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
+
+                logger.info("%s:item:processing this entry:%s:%s:%s", feed, id, pubdate_fmt, item.title)
 
                 logger.info(feed + ':item:id:' + id)
                 logger.info(feed +

@@ -51,9 +51,13 @@ library, like maybe changing how client= gets set, to something with a
 setup function that takes an optional client argument, maybe? If you figure
 it out, please give me a pull request.
 
+If you don't need _live_ changes, since this bot is read-only, it can easily
+be running alongside another bot using same account to appear as a single
+user.
+
 ## Requirements
 (see also requirements.txt)
-- Python 3.4.2+
+- Python 3.6+ (might work with recent python 3.5.x if you modify the version check, but 3.6 is what I'm running it with)
 - [discord.py](https://github.com/Rapptz/discord.py)
 - [feedparser](https://pypi.python.org/pypi/feedparser)
 - [html2text](https://pypi.python.org/pypi/html2text)
