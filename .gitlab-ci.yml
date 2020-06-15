@@ -16,7 +16,11 @@ before_script:
   - pip install -r requirements.txt
 
 stages:
+  - build
   - Static Analysis
+  - test
+  - deploy
+  - dast
 
 flake8:
   stage: Static Analysis
