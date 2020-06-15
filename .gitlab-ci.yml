@@ -1,11 +1,13 @@
-# Static Application Security Testing
 include:
+
+  # Static Application Security Testing
   - template: SAST.gitlab-ci.yml
 
-# Check dependencies for potential problems
-include:
+  # Check dependencies for potential problems
   - template: Dependency-Scanning.gitlab-ci.yml
 
-# Container Scanning
-#include:
-#  - template: Container-Scanning.gitlab-ci.yml
+  # Container Scanning
+  - template: Container-Scanning.gitlab-ci.yml
+
+  # License Scanning; Overkill, but shouldn't hurt
+  - template: License-Scanning.gitlab-ci.yml
