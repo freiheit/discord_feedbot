@@ -7,5 +7,5 @@ include:
   - template: Dependency-Scanning.gitlab-ci.yml
 
 # Container Scanning
-include:
-  - template: Container-Scanning.gitlab-ci.yml
+#include:
+#  - template: Container-Scanning.gitlab-ci.yml
