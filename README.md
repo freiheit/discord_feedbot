@@ -1,6 +1,5 @@
 [![Discord server invite](https://discord.com/api/guilds/720538433965129769/embed.png)](https://discord.gg/5HK2yQj)
-[![pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/master/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/commits/master)
-[![coverage report](https://gitlab.com/ffreiheit/discord_feedbot/badges/master/coverage.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/commits/master)
+[![pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/master/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/pipelines)
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
