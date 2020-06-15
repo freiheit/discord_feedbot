@@ -519,9 +519,8 @@ async def background_check_feed(feed, asyncioloop):
 
             # pull data about history of this *feed* from DB:
             cursor = conn.execute(
-                "select lastmodified,etag from feed_info where feed=? OR url=?",
-                [feed, feed_url],
-            )
+                "select lastmodified,etag from feed_info where feed=? OR url=?", [
+                    feed, feed_url], )
             data = cursor.fetchone()
 
             # If we've handled this feed before,
@@ -544,8 +543,9 @@ async def background_check_feed(feed, asyncioloop):
                 etag = data[1]
                 if lastmodified is not None and len(lastmodified):
                     logger.info(
-                        feed + ":adding header If-Modified-Since: " + lastmodified
-                    )
+                        feed +
+                        ":adding header If-Modified-Since: " +
+                        lastmodified)
                     http_headers["If-Modified-Since"] = lastmodified
                 else:
                     logger.info(feed + ":no stored lastmodified")
@@ -620,9 +620,8 @@ async def background_check_feed(feed, asyncioloop):
                 modified = http_response.headers["LAST-MODIFIED"]
                 logger.info(feed + ":saving lastmodified: " + modified)
                 conn.execute(
-                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
-                    [modified, feed, feed_url],
-                )
+                    "UPDATE feed_info SET lastmodified=? where feed=? or url=?", [
+                        modified, feed, feed_url], )
                 conn.commit()
                 logger.info(feed + ":saved lastmodified")
             else:
@@ -664,9 +663,7 @@ async def background_check_feed(feed, asyncioloop):
                     feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
-                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
-                    [id],
-                )
+                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?", [id], )
                 data = cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
@@ -799,10 +796,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                             else:
                                 logger.info(
-                                    feed
-                                    + ":item:skipping item due to not passing filter for "
-                                    + channel["name"]
-                                )
+                                    feed + ":item:skipping item due to not passing filter for " + channel["name"])
 
                     else:
                         # Logs of debugging info for date handling stuff...
@@ -820,8 +814,8 @@ async def background_check_feed(feed, asyncioloop):
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.info(
-                feed + ":Headers indicate feed unchanged since last time fetched:"
-            )
+                feed +
+                ":Headers indicate feed unchanged since last time fetched:")
             logger.debug(sys.exc_info())
         # Many feeds have random periodic problems that shouldn't cause
         # permanent death:
@@ -843,9 +837,8 @@ async def background_check_feed(feed, asyncioloop):
             logger.error(feed + ":discord.errors.Forbidden")
             logger.error(sys.exc_info())
             logger.error(
-                feed
-                + ":Perhaps bot isn't allowed in one of the channels for this feed?"
-            )
+                feed +
+                ":Perhaps bot isn't allowed in one of the channels for this feed?")
             # raise # or not? hmm...
         # unknown error: definitely give up and die and move on
         except Exception:
