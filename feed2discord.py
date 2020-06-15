@@ -154,12 +154,12 @@ def get_feeds_config(config):
 
 def get_sqlite_connection(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = yield from sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
     return conn
 
 def sql_maintenance(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = yield from sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
 
     # If our two tables don't exist, create them.
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
@@ -375,8 +375,7 @@ def build_message(FEED, item, channel):
     return message
 
 # This schedules an 'actually_send_message' coroutine to run
-@asyncio.coroutine
-def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
+async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
     delay = FEED.getint(channel['name'] + '.delay', FEED.getint('delay', 0))
     logger.info(feed + ':' + channel['name'] +
                  ':scheduling message with delay of ' + str(delay))
@@ -387,10 +386,9 @@ def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
 # Simply sleeps for delay and then sends message.
 
 
-@asyncio.coroutine
-def actually_send_message(channel, message, delay, FEED, feed):
+async def actually_send_message(channel, message, delay, FEED, feed):
     if should_send_typing(FEED, feed):
-        yield from channel["object"].send_typing()
+        await channel["object"].send_typing()
 
     logger.info(
         "%s:%s:sleeping for %i seconds before sending message",
@@ -398,15 +396,15 @@ def actually_send_message(channel, message, delay, FEED, feed):
     )
 
     if delay > 0:
-        yield from asyncio.sleep(delay)
+        await asyncio.sleep(delay)
 
     logger.info("%s:%s:actually sending message", feed, channel["name"])
-    msg = yield from channel["object"].send(message)
+    msg = await channel["object"].send(message)
 
     # if publish=1, channel is news/announcement and we have manage_messsages, then "publish" so it goes to all servers
     if config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1 and channel["object"].is_news():
         try:
-            yield from msg.publish()
+            await msg.publish()
         except:
             logger.info(feed + ': Could not publish message')
     
@@ -414,20 +412,17 @@ def actually_send_message(channel, message, delay, FEED, feed):
 
 # The main work loop
 # One of these is run for each feed.
-# It's an asyncio thing. "yield from" (sleep or I/O) returns to main loop
+# It's an asyncio thing. "await" (sleep or I/O) returns to main loop
 # and gives other feeds a chance to run.
-
-
-@asyncio.coroutine
-def background_check_feed(feed, asyncioloop):
+async def background_check_feed(feed, asyncioloop):
 
     logger.info(feed + ': Starting up background_check_feed')
     
 
     # Try to wait until Discord client has connected, etc:
-    yield from client.wait_until_ready()
+    await client.wait_until_ready()
     # make sure debug output has this check run in the right order...
-    yield from asyncio.sleep(1)
+    await asyncio.sleep(1)
 
     user_agent = config["MAIN"].get("user_agent", USER_AGENT)
 
@@ -467,7 +462,7 @@ def background_check_feed(feed, asyncioloop):
     if start_skew > 0:
         sleep_time = random.uniform(start_skew_min, start_skew)
         logger.info(feed + ':start_skew:sleeping for ' + str(sleep_time))
-        yield from asyncio.sleep(sleep_time)
+        await asyncio.sleep(sleep_time)
 
     # Basically run forever
     while True:
@@ -484,7 +479,7 @@ def background_check_feed(feed, asyncioloop):
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
                     try:
-                        yield from client.send_typing(channel['object'])
+                        await client.send_typing(channel['object'])
                     except discord.errors.Forbidden:
                         logger.exception(
                             "%s:%s:forbidden - is bot allowed in channel?",
@@ -546,9 +541,9 @@ def background_check_feed(feed, asyncioloop):
             httpclient = aiohttp.ClientSession()
 
             logger.info(feed + ':sending http request for ' + feed_url)
-            # Send actual request.  yield from can yield control to another
+            # Send actual request.  await can yield control to another
             # instance.
-            http_response = yield from httpclient.get(feed_url, headers=http_headers)
+            http_response = await httpclient.get(feed_url, headers=http_headers)
                                                           
 
             logger.info(http_response)
@@ -579,9 +574,9 @@ def background_check_feed(feed, asyncioloop):
 
             # pull data out of the http response
             logger.info(feed + ':reading http response')
-            http_data = yield from http_response.read()
+            http_data = await http_response.read()
 
-            yield from httpclient.close()
+            await httpclient.close()
 
             # parse the data from the http response with feedparser
             logger.info(feed + ':parsing http data')
@@ -733,7 +728,7 @@ def background_check_feed(feed, asyncioloop):
                                 message = build_message(FEED, item, channel)
                                 logger.info(
                                     feed + ':item:sending message (eventually) to ' + channel['name'])
-                                yield from send_message_wrapper(asyncioloop,
+                                await send_message_wrapper(asyncioloop,
                                                                 FEED,
                                                                 feed,
                                                                 channel,
@@ -791,17 +786,17 @@ def background_check_feed(feed, asyncioloop):
         finally:
             logger.info(feed + ':sleeping for ' +
                          str(rss_refresh_time) + ' seconds')
-            yield from asyncio.sleep(rss_refresh_time)
+            await asyncio.sleep(rss_refresh_time)
 
 
 #@client.async_event
-def on_ready():
+async def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
     # set current game played
     gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
     if gameplayed:
-        yield from client.change_presence(
+        await client.change_presence(
             game=discord.Game(name=gameplayed), status=discord.Status.idle
         )
 
@@ -810,7 +805,7 @@ def on_ready():
     if avatar_file_name:
         with open(avatar_file_name, "rb") as f:
             avatar = f.read()
-        yield from client.edit_profile(avatar=avatar)
+        await client.edit_profile(avatar=avatar)
 
 
 # Set up the tasks for each feed and start the main event loop thing.
