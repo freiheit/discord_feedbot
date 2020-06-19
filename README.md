@@ -40,6 +40,9 @@ If your Discord server is related to Elite: Dangerous, you may be able to use my
 12. configure feeds in feed2discord.local.ini (anything that's not MAIN, CHANNELS or DEFAULT is assumed to be a feed)
 13. Run the bot.
 
+## My configuration
+The configuration of my instance of feedbot (minus auth token) is here: https://gitlab.com/ffreiheit/feedbot-config
+
 ## Use as Library
 
 I have not tested at all, but I have tried to make it possible to plug this
