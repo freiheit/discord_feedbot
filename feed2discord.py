@@ -80,6 +80,12 @@ DEFAULT_CONFIG_PATHS = [
     os.path.join("feed2discord.ini"),
 ]
 
+DEFAULT_AUTH_CONFIG_PATHS = [
+    os.path.join(HOME_DIR, ".feed2discord.auth.ini"),
+    os.path.join(BASE_DIR, "feed2discord.auth.ini"),
+    os.path.join("feed2discord.auth.ini"),
+]
+
 
 def parse_args():
     version = "%(prog)s {}".format(__version__)
@@ -93,15 +99,24 @@ def parse_args():
 def get_config():
     args = parse_args()
     config = ConfigParser()
+    config_paths = []
+    
     if args.config:
-        config.read(args.config)
+        config_paths = [ args.config ]
     else:
         for path in DEFAULT_CONFIG_PATHS:
             if os.path.isfile(path):
-                config.read(path)
+                config_paths.append(path)
                 break
         else:
             raise ImproperlyConfigured("No configuration file found.")
+
+        for path in DEFAULT_AUTH_CONFIG_PATHS:
+            if os.path.isfile(path):
+                config_paths.append(path)
+                break
+
+    config.read(config_paths)
 
     debug = config["MAIN"].getint("debug", 0)
 
