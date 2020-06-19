@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2017 Eric Eisenhart
+# Copyright (c) 2016-2020 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
 
