@@ -3,6 +3,8 @@
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
+Primary location is https://gitlab.com/ffreiheit/discord_feedbot -- github.com/freiheit/discord_feedbot is a mirror and all others are forks.
+
 ![Feed Bot](avatars/avatar-angry-small.png)
 
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
@@ -27,12 +29,21 @@ If your Discord server is related to Elite: Dangerous, you may be able to use my
 2. Go here: https://discordapp.com/developers/applications/me#top
 3. Register an "application" and create an "app bot user".
 4. Replace "APP_CLIENT_ID" with the App's Client ID in this URL:
-   https://discordapp.com/oauth2/authorize?&client_id=APP_CLIENT_ID&scope=bot&permissions=153600
+   https://discordapp.com/oauth2/authorize?&client_id=APP_CLIENT_ID&scope=bot&permissions=157696
+   - Use https://discordapi.com/permissions.html to generate that URL if you need to.
+     - Send messages: absolutely required
+     - Embed links: highly recommended, so that links get a preview
+       (use `<link>` instead of `link` in config to avoid preview)
+     - Mention @everyone, etc: only needed if intend to have bot ping for something
+     - Manage messages: needed if you want the bot to "publish" messages in an "announcement"
+     - channel so that other server owners can "Follow" and get those messages in their channels)
 5. Give that URL to the Discord server/guild owner and have them authorize
    the bot.
 6. `git clone` this repo.
 7. Copy feed2discord.ini to feed2discord.local.ini
 8. Put the App Bot User's 'Token' in the .ini file.
+   (optional: copy just [MAIN] and that token field to feed2discord.auth.ini and
+    leave it out of feed2discord.local.ini so that config is more shareable)
 9. Set the timezone in the .ini file to the same as the timezone your system is set to.
 10. Get all the channel IDs (Turn on "Developer Mode" in Settings/Appearance, then right-click channel)
 11. Figure out your feeds.
