@@ -5,7 +5,6 @@
 
 # See README.md for instructions on setup and usage
 
-import aiohttp
 import discord
 import feedparser
 import in_place
@@ -40,7 +39,8 @@ for path in AUTH_CONFIG_PATHS:
         config_paths.append(path)
         break
 else:
-    raise ImproperlyConfigured("No configuration file found.")
+    print("No configuration file found.")
+    exit()
 
 config.read(config_paths)
 
