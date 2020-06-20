@@ -86,6 +86,7 @@ class MyClient(discord.Client):
 
         old_room = self.get_channel(default_room)
         new_room = await old_room.clone(name=name, reason=f'feedbot {feed_url} {fields}')
+        new_room.edit(reason="Update topic",topic=feed_url)
         room_id = new_room.id
 
         await self.close()
