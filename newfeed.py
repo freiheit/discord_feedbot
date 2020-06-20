@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# Copyright (c) 2016-2020 Eric Eisenhart
+# Copyright (c) 2020 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE for full details.
+
+# See README.md for instructions on setup and usage
 
 import aiohttp
 import discord

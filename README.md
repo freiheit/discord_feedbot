@@ -60,6 +60,32 @@ Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want.
 14. Recommended: set up as a "service" that automatically runs.
     - Look at tools/feedbot.service for example for Linux with systemd option
 
+## Adding a feed
+I have a utility, "newfeed.py" that helps you add a feed.
+
+### newfeed.py setup:
+1. You _must_ use feed2discord.local.ini in the current directory
+2. Recommend that you also move the login_token into feed2discord.auth.ini
+   (in a `[MAIN]` section)
+3. In your discord, set up a "default" room and assign it all the right
+   permissions for feedbot to be able to post
+4. Get that channel ID and put it into `[CHANNELS]` section like
+   `default = 12345678901234`
+
+### newfeed.py usage:
+1. Find the feed URL
+2. Run `./newfeed.py https://example.com/blog/feed.xml` with your feed URL
+3. Read what it says
+4. Restart afterwards
+
+Alternately, customize newfeed.sh to match your configuration for where the
+config files are, whether or not to git commit stuff, how to restart your
+feedbot, and use `./newfeed.sh https://example.com/blog/feed.xml`
+(If you want to match my configuration, use linux, run everything as "bots", put
+feed2discord.local.ini into /home/bots/feedbot-config/ as a private git
+repository, and symlink feed2discord.local.ini to appear in feedbot's
+directory)
+
 ## My configuration
 The configuration of my instance of feedbot (minus auth token) is here: https://gitlab.com/ffreiheit/feedbot-config
 
@@ -84,9 +110,11 @@ user.
 (see also requirements.txt)
 - Python 3.6+ (might work with recent python 3.5.x if you modify the version 
   check, but 3.6 is what I'm running it with)
+- sqlite3 -- Usually comes with python
 - [discord.py](https://github.com/Rapptz/discord.py)
 - [feedparser](https://pypi.python.org/pypi/feedparser)
 - [html2text](https://pypi.python.org/pypi/html2text)
+- [in_place](https://pypi.org/project/in-place/) (only used by newfeed.py; otherwise optional)
 
 ## Frequently Asked Questions
 ### Can I have a feed ping a specific person or role?
@@ -139,6 +167,6 @@ Workarounds:
 
 ## Financial Support
 I have a very few costs associated with this project.
-I'm happy to donate my time for it, though.
-
+I'm happy to donate my time.
+But if you want to thank me financially:
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)
