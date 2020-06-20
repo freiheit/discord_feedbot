@@ -15,7 +15,7 @@ import sys
 
 from configparser import ConfigParser
 
-## Get login_token from config:
+# Get login_token from config:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HOME_DIR = os.path.expanduser("~")
 
@@ -34,27 +34,27 @@ config = ConfigParser()
 config_paths = []
 
 for path in AUTH_CONFIG_PATHS:
-   if os.path.isfile(path):
-       config_paths.append(path)
-       break
+    if os.path.isfile(path):
+        config_paths.append(path)
+        break
 else:
-   raise ImproperlyConfigured("No configuration file found.")
+    raise ImproperlyConfigured("No configuration file found.")
 
 config.read(config_paths)
 
-login_token = config.get("MAIN","login_token")
+login_token = config.get("MAIN", "login_token")
 default_room = config.getint("MAIN", "default_room")
 
-## Get terminal width
+# Get terminal width
 term_size = shutil.get_terminal_size(fallback=(80, 24))
 columns = term_size[0]
 
-## Get feed URL from CLI or prompt for it:
+# Get feed URL from CLI or prompt for it:
 feed_url = ''
 if len(sys.argv) == 2:
-     feed_url = sys.argv[1]
+    feed_url = sys.argv[1]
 else:
-     feed_url = input("Feed URL: ")
+    feed_url = input("Feed URL: ")
 
 feed_data = feedparser.parse(feed_url)
 pp = pprint.PrettyPrinter(indent=4, depth=1, width=columns)
@@ -74,7 +74,8 @@ fields = input("Feed Fields: ")
 
 name = input("Feed and Channel Name: ")
 
-room_id = default_room # get type right
+room_id = default_room  # get type right
+
 
 class MyClient(discord.Client):
     async def on_ready(self):
@@ -82,10 +83,11 @@ class MyClient(discord.Client):
         print('Username: {0.name}\nID: {0.id}'.format(self.user))
 
         old_room = self.get_channel(default_room)
-        new_room = await old_room.clone(name=name,reason=f'feedbot {feed_url} {fields}')
+        new_room = await old_room.clone(name=name, reason=f'feedbot {feed_url} {fields}')
         room_id = new_room.id
-        
+
         await self.close()
+
 
 client = MyClient()
 client.run(login_token)
@@ -104,9 +106,9 @@ print("Do those look good?")
 yesno = input("y/n: ")
 
 if yesno == "y" or yesno == "Y":
-    with in_place.InPlace('feed2discord.local.ini',backup_ext='~') as inifile:
+    with in_place.InPlace('feed2discord.local.ini', backup_ext='~') as inifile:
         for line in inifile:
-            if re.match(f'default *= *{default_room}',line):
+            if re.match(f'default *= *{default_room}', line):
                 inifile.write(room_slug)
                 inifile.write("\n")
             inifile.write(line)
