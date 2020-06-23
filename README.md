@@ -9,6 +9,8 @@ github.com/freiheit/discord_feedbot is a mirror and all others are forks.
 
 ![Feed Bot](avatars/avatar-angry-small.png)
 
+[[_TOC_]]
+
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
