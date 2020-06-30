@@ -498,7 +498,7 @@ async def background_check_feed(feed, asyncioloop):
     # Basically run forever
     while True:
 
-        # And tries to catch all the exceptions and just keep going
+        # And try to catch all the exceptions and just keep going
         # (but see list of except/finally stuff below)
         try:
             logger.info(feed + ": processing feed")
@@ -881,11 +881,8 @@ async def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
     # set current game played
-    gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
-    if gameplayed:
-        await client.change_presence(
-            game=discord.Game(name=gameplayed), status=discord.Status.idle
-        )
+    gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+    await client.change_presence(activity=discord.Game(name=gameplayed))
 
     # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
@@ -904,6 +901,7 @@ def main():
     sql_maintenance(config)
 
     try:
+        loop.create_task(on_ready())
         for feed in feeds:
             loop.create_task(background_check_feed(feed, loop))
         if "login_token" in MAIN:
