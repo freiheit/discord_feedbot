@@ -9,6 +9,8 @@ github.com/freiheit/discord_feedbot is a mirror and all others are forks.
 
 ![Feed Bot](avatars/avatar-angry-small.png)
 
+[[_TOC_]]
+
 Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
@@ -27,7 +29,7 @@ Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want.
 
 (I have some other feeds, but E:D is the most thoroughly covered)
 
-## Initial Setup
+# Initial Setup
 
 1. Make sure the time on your system is correct. (NTP strongly recommended)
 2. Go here: https://discordapp.com/developers/applications/me#top
@@ -60,10 +62,10 @@ Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want.
 14. Recommended: set up as a "service" that automatically runs.
     - Look at tools/feedbot.service for example for Linux with systemd option
 
-## Adding a feed
+# Adding a feed
 I have a utility, "newfeed.py" that helps you add a feed.
 
-### newfeed.py setup:
+## newfeed.py setup:
 1. You _must_ use feed2discord.local.ini in the current directory
 2. Recommend that you also move the login_token into feed2discord.auth.ini
    (in a `[MAIN]` section)
@@ -72,7 +74,7 @@ I have a utility, "newfeed.py" that helps you add a feed.
 4. Get that channel ID and put it into `[CHANNELS]` section like
    `default = 12345678901234`
 
-### newfeed.py usage:
+## newfeed.py usage:
 1. Find the feed URL
 2. Run `./newfeed.py https://example.com/blog/feed.xml` with your feed URL
 3. Read what it says
@@ -86,7 +88,7 @@ feed2discord.local.ini into /home/bots/feedbot-config/ as a private git
 repository, and symlink feed2discord.local.ini to appear in feedbot's
 directory)
 
-## My configuration
+# My configuration
 The configuration of my instance of feedbot (minus auth token) is here: https://gitlab.com/ffreiheit/feedbot-config
 
 ## Use as Library
@@ -106,7 +108,7 @@ If you don't need _live_ changes, since this bot is read-only, it can easily
 be running alongside another bot using same account to appear as a single
 user.
 
-## Requirements
+# Requirements
 (see also requirements.txt)
 - Python 3.6+ (might work with recent python 3.5.x if you modify the version 
   check, but 3.6 is what I'm running it with)
@@ -116,15 +118,15 @@ user.
 - [html2text](https://pypi.python.org/pypi/html2text)
 - [in_place](https://pypi.org/project/in-place/) (only used by newfeed.py; otherwise optional)
 
-## Frequently Asked Questions
-### Can I have a feed ping a specific person or role?
+# Frequently Asked Questions
+## Can I have a feed ping a specific person or role?
 Yes. Add a string with their ping text to the fields.
 
-### How do I figure out what fields are in a feed? or I get "no such field" errors.
+## How do I figure out what fields are in a feed? or I get "no such field" errors.
 Use `show_sample_entry.py http://example.com/your_feed/thing.rss`. This
 dumps out the data structure that our feed parsing library produces.
 
-### How do I figure out my timezone?
+## How do I figure out my timezone?
 On Windows, check settings/time for the timezone or run "tzutil /g".
 
 On Unix/Linux systems, this is more complicated than it should be.
@@ -135,7 +137,7 @@ Things to check:
 - `find /usr/share/zoneinfo/ -type f| xargs md5sum | grep $(md5sum /etc/localtime  | cut -d' ' -f1)`
 - `date +%Z` # careful, may give you a timezone only useful half of the year
 
-### It looks like it's working, but nothing posts, and logs say `too old; skipping` for everything.
+## It looks like it's working, but nothing posts, and logs say `too old; skipping` for everything.
 Double-check your timezone settings! If the timezone isn't right, and max_age 
 is under 24 hours (86400), then it's possible for brand-new posts to look too
 old to post.
@@ -165,7 +167,7 @@ Workarounds:
   spamming your channels. You can run once with output only to a test channel,
   then stop, reconfigure for real channels, and run again.
 
-## Financial Support
+# Financial Support
 I have a very few costs associated with this project.
 I'm happy to donate my time.
 But if you want to thank me financially:
