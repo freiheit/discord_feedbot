@@ -29,7 +29,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "3.1.1"
+__version__ = "3.1.2"
 
 
 PROG_NAME = "feedbot"
@@ -501,6 +501,10 @@ async def background_check_feed(feed, asyncioloop):
         # And try to catch all the exceptions and just keep going
         # (but see list of except/finally stuff below)
         try:
+            # set current "game played" constantly so that it sticks around
+            gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+            await client.change_presence(activity=discord.Game(name=gameplayed))
+        
             logger.info(feed + ": processing feed")
 
             # If send_typing is on for the feed, send a little "typing ..."
@@ -880,7 +884,7 @@ async def background_check_feed(feed, asyncioloop):
 async def on_ready():
     logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
 
-    # set current game played
+    # set current "game played" at startup
     gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
     await client.change_presence(activity=discord.Game(name=gameplayed))
 
