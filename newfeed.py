@@ -11,6 +11,7 @@ import in_place
 import os
 import re
 import pprint
+import readline
 import shutil
 import sys
 
