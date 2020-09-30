@@ -29,7 +29,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "3.1.3"
+__version__ = "3.2.0"
 
 
 PROG_NAME = "feedbot"
@@ -199,12 +199,16 @@ TIMEZONE = get_timezone(config)
 
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
-feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
+# feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
 
 # global discord client object
-# No offline_members as we don't use them
-client = discord.Client(fetch_offline_members=False)
+# Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
+client = discord.Client(
+    chunk_guilds_at_startup=False,
+    member_cache_flags=discord.MemberCacheFlags.none(),
+    max_messages=None
+    )
 
 
 def extract_best_item_date(item, tzinfo):
@@ -709,6 +713,8 @@ async def background_check_feed(feed, asyncioloop):
                         datetime.now()
                     ) - pubdate.astimezone(TIMEZONE)
 
+                    logger.debug('%s:time_since_published.total_seconds:%s,max_age:%s',feed, time_since_published.total_seconds(),max_age)
+
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed + ":item:fresh and ready for parsing")
 
@@ -882,11 +888,7 @@ async def background_check_feed(feed, asyncioloop):
 
 # @client.async_event
 async def on_ready():
-    logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
-
-    # set current "game played" at startup
-    gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
-    await client.change_presence(activity=discord.Game(name=gameplayed))
+    logger.info("Logged in")
 
     # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
