@@ -208,7 +208,7 @@ client = discord.Client(
     chunk_guilds_at_startup=False,
     member_cache_flags=discord.MemberCacheFlags.none(),
     max_messages=None
-    )
+)
 
 
 def extract_best_item_date(item, tzinfo):
@@ -506,9 +506,10 @@ async def background_check_feed(feed, asyncioloop):
         # (but see list of except/finally stuff below)
         try:
             # set current "game played" constantly so that it sticks around
-            gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+            gameplayed = MAIN.get(
+                "gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
             await client.change_presence(activity=discord.Game(name=gameplayed))
-        
+
             logger.info(feed + ": processing feed")
 
             # If send_typing is on for the feed, send a little "typing ..."
@@ -713,7 +714,8 @@ async def background_check_feed(feed, asyncioloop):
                         datetime.now()
                     ) - pubdate.astimezone(TIMEZONE)
 
-                    logger.debug('%s:time_since_published.total_seconds:%s,max_age:%s',feed, time_since_published.total_seconds(),max_age)
+                    logger.debug('%s:time_since_published.total_seconds:%s,max_age:%s',
+                                 feed, time_since_published.total_seconds(), max_age)
 
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed + ":item:fresh and ready for parsing")
