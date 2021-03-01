@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.8
 # Copyright (c) 2020 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE for full details.
