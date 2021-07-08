@@ -660,15 +660,15 @@ async def background_check_feed(feed, asyncioloop):
             for item in reversed(feed_data.entries):
 
                 # Pull out the unique id, or just give up on this item.
-                id = ""
+                itemid = ""
                 if "id" in item:
-                    id = item.id
+                    itemid = item.id
                 elif "guid" in item:
-                    id = item.guid
+                    itemid = item.guid
                 elif "link" in item:
-                    id = item.link
+                    itemid = item.link
                 else:
-                    logger.error(feed + ":item:no id, skipping")
+                    logger.error(feed + ":item:no itemid, skipping")
                     continue
 
                 # Get our best date out, in both raw and parsed form
@@ -678,30 +678,30 @@ async def background_check_feed(feed, asyncioloop):
                 logger.info(
                     "%s:item:processing this entry:%s:%s:%s",
                     feed,
-                    id,
+                    itemid,
                     pubdate_fmt,
                     item.title,
                 )
 
-                logger.info(feed + ":item:id:" + id)
+                logger.info(feed + ":item:itemid:" + itemid)
                 logger.info(
                     feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
                     "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
-                    [id],
+                    [itemid],
                 )
                 data = cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
                 # this:
                 if data is None:
-                    logger.info(feed + ":item " + id + " unseen, processing:")
+                    logger.info(feed + ":item " + itemid + " unseen, processing:")
 
                     # Store info about this item, so next time we skip it:
                     conn.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
-                        [id, pubdate_fmt],
+                        [itemid, pubdate_fmt],
                     )
                     conn.commit()
 
@@ -843,7 +843,7 @@ async def background_check_feed(feed, asyncioloop):
                 # seen before, move on:
                 else:
                     logger.info(
-                        feed + ":item:" + id + " seen before, skipping")
+                        feed + ":item:" + itemid + " seen before, skipping")
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.info(
