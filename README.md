@@ -1,5 +1,5 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![Discord server invite](https://discord.com/api/guilds/720538433965129769/embed.png)](https://discord.gg/5HK2yQj)
+[![Discord server invite](https://discord.com/api/guilds/720538433965129769/embed.png)](https://discord.gg/s97tH5Bsw6)
 [![pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/main/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/pipelines)
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
@@ -25,7 +25,7 @@ appear to be a single bot.
 
 If your Discord server is related to Elite: Dangerous, you may be able to use
 my feedbot instance instead of running your own copy.
-Head to https://discord.gg/5HK2yQj and "Follow" the rooms you want.
+Head to https://discord.gg/s97tH5Bsw6 and "Follow" the rooms you want.
 
 (I have some other feeds, but E:D is the most thoroughly covered)
 
