@@ -617,6 +617,9 @@ async def background_check_feed(feed, asyncioloop):
             logger.info(feed + ":reading http response")
             http_data = await http_response.read()
 
+            # Apparently we need to sleep before closing an SSL connection?
+            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+            await asyncio.sleep(0.250)
             await httpclient.close()
 
             # parse the data from the http response with feedparser
