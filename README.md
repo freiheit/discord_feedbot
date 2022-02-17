@@ -110,8 +110,7 @@ user.
 
 # Requirements
 (see also requirements.txt)
-- Python 3.6+ (might work with recent python 3.5.x if you modify the version 
-  check, but 3.6 is what I'm running it with)
+- Python 3.8+ (discord.py requires 3.8+. 3.9 is what I'm running it with)
 - sqlite3 -- Usually comes with python
 - [discord.py](https://github.com/Rapptz/discord.py)
 - [feedparser](https://pypi.python.org/pypi/feedparser)
