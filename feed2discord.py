@@ -619,7 +619,7 @@ async def background_check_feed(feed, asyncioloop):
 
             # Apparently we need to sleep before closing an SSL connection?
             # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-            await asyncio.sleep(0.250)
+            await asyncio.sleep(5)
             await httpclient.close()
 
             # parse the data from the http response with feedparser
@@ -880,7 +880,8 @@ async def background_check_feed(feed, asyncioloop):
         # unknown error: definitely give up and die and move on
         except Exception:
             logger.exception("Unexpected error - giving up")
-            raise
+            # Don't raise?
+            # raise
         # No matter what goes wrong, wait same time and try again
         finally:
             logger.info(
