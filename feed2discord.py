@@ -8,7 +8,7 @@ import logging
 import os
 import random
 import re
-import sqlite3
+import aiosqlite
 import sys
 import time
 import warnings
@@ -169,13 +169,13 @@ def get_feeds_config(config):
 
 def get_sqlite_connection(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = sqlite3.connect(db_path)
+    conn = aiosqlite.connect(db_path)
     return conn
 
 
 def sql_maintenance(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = sqlite3.connect(db_path)
+    conn = aiosqlite.connect(db_path)
 
     # If our two tables don't exist, create them.
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
@@ -534,7 +534,8 @@ async def background_check_feed(feed, asyncioloop):
             # Debugging crazy issues
             logger.info(feed + ":db_debug:db_path=" + db_path)
 
-            conn = sqlite3.connect(db_path)
+#            conn = sqlite3.connect(db_path,rss_refresh_time)
+            conn = aiosqlite.connect(db_path)
 
             # Download the actual feed, if changed since last fetch
 
@@ -542,11 +543,11 @@ async def background_check_feed(feed, asyncioloop):
             logger.info(feed + ":db_debug:conn=" + type(conn).__name__)
 
             # pull data about history of this *feed* from DB:
-            cursor = conn.execute(
+            cursor = await conn.execute(
                 "select lastmodified,etag from feed_info where feed=? OR url=?",
                 [feed, feed_url],
             )
-            data = cursor.fetchone()
+            data = await cursor.fetchone()
 
             # If we've handled this feed before,
             # and we have etag from last run, add etag to headers.
@@ -554,11 +555,11 @@ async def background_check_feed(feed, asyncioloop):
             # add "If-Modified-Since" to headers.
             if data is None:  # never handled this feed before...
                 logger.info(feed + ":looks like updated version. saving info")
-                conn.execute(
+                await conn.execute(
                     "REPLACE INTO feed_info (feed,url) VALUES (?,?)", [
                         feed, feed_url]
                 )
-                conn.commit()
+                await conn.commit()
                 logger.info(feed + ":feed info saved")
             else:
                 logger.info(
@@ -632,11 +633,11 @@ async def background_check_feed(feed, asyncioloop):
             if "ETAG" in http_response.headers:
                 etag = http_response.headers["ETAG"]
                 logger.info(feed + ":saving etag: " + etag)
-                conn.execute(
+                await conn.execute(
                     "UPDATE feed_info SET etag=? where feed=? or url=?",
                     [etag, feed, feed_url],
                 )
-                conn.commit()
+                await conn.commit()
                 logger.info(feed + ":etag saved")
             else:
                 logger.info(feed + ":no etag")
@@ -646,11 +647,11 @@ async def background_check_feed(feed, asyncioloop):
             if "LAST-MODIFIED" in http_response.headers:
                 modified = http_response.headers["LAST-MODIFIED"]
                 logger.info(feed + ":saving lastmodified: " + modified)
-                conn.execute(
+                await conn.execute(
                     "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
                     [modified, feed, feed_url],
                 )
-                conn.commit()
+                await conn.commit()
                 logger.info(feed + ":saved lastmodified")
             else:
                 logger.info(feed + ":no last modified date")
@@ -690,11 +691,11 @@ async def background_check_feed(feed, asyncioloop):
                 logger.info(
                     feed + ":item:checking database history for this item")
                 # Check DB for this item
-                cursor = conn.execute(
+                cursor = await conn.execute(
                     "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
                     [itemid],
                 )
-                data = cursor.fetchone()
+                data = await cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
                 # this:
@@ -702,11 +703,11 @@ async def background_check_feed(feed, asyncioloop):
                     logger.info(feed + ":item " + itemid + " unseen, processing:")
 
                     # Store info about this item, so next time we skip it:
-                    conn.execute(
+                    await conn.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
                         [itemid, pubdate_fmt],
                     )
-                    conn.commit()
+                    await conn.commit()
 
                     # Doing some crazy date math stuff...
                     # max_age is mostly so that first run doesn't spew too
@@ -860,9 +861,9 @@ async def background_check_feed(feed, asyncioloop):
             logger.warn(sys.exc_info())
             logger.warn(
                 feed + ":Assuming error is transient and trying again later")
-        # sqlite3 errors are probably really bad and we should just totally
+        # aiosqlite errors are probably really bad and we should just totally
         # give up on life
-        except sqlite3.Error as sqlerr:
+        except aiosqlite.Error as sqlerr:
             logger.error(feed + ":sqlite error: ")
             logger.error(sys.exc_info())
             logger.error(sqlerr)
