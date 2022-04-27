@@ -6,7 +6,7 @@ html2text==2020.1.16
 in-place==0.4.0
 mypy==0.780
 pylint==1.6.5
-python-dateutil==2.8.1
+python-dateutil==2.8.2
 pytz==2020.1
 requests==2.23.0
 six==1.15.0
