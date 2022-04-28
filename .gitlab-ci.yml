@@ -12,6 +12,9 @@ include:
 - template: Security/SAST.gitlab-ci.yml
 - template: Security/Container-Scanning.gitlab-ci.yml
 - template: Security/Secret-Detection.gitlab-ci.yml
+- project: 'renovate-bot/renovate-runner'
+      file: '/templates/renovate-dind.gitlab-ci.yml'
+
 image: python:3.10
 before_script:
 - python --version
