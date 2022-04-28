@@ -36,3 +36,7 @@ pylint:
   - pylint -d C0301 *.py
 sast:
   stage: test
+renovate:
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "schedule"'
+        - if: '$CI_PIPELINE_SOURCE == "push"'
