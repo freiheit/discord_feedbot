@@ -1,3 +1,4 @@
+[![Latest Release](https://gitlab.com/ffreiheit/discord_feedbot/-/badges/release.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/releases)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Discord server invite](https://discord.com/api/guilds/910747606722965555/embed.png)](https://discord.gg/s97tH5Bsw6)
 [![gitlab pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/main/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/pipelines)
