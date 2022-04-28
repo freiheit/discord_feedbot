@@ -1,7 +1,7 @@
 aiohttp==3.7.4
 aiosqlite==0.17.0
 discord.py==1.7.3
-feedparser==6.0.1
+feedparser==6.0.8
 flake8==3.8.3
 html2text==2020.1.16
 in-place==0.4.0
