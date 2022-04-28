@@ -9,7 +9,7 @@ include:
   # License Scanning; Overkill, but shouldn't hurt
   - template: License-Scanning.gitlab-ci.yml
 
-image: "python:3.6"
+image: "python:3.10"
 
 before_script:
   - python --version
