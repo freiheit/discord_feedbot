@@ -10,7 +10,6 @@ include:
 - template: Dependency-Scanning.gitlab-ci.yml
 - template: License-Scanning.gitlab-ci.yml
 - template: Security/SAST.gitlab-ci.yml
-- template: Security/Container-Scanning.gitlab-ci.yml
 - template: Security/Secret-Detection.gitlab-ci.yml
 - project: 'renovate-bot/renovate-runner'
   file: '/templates/renovate-dind.gitlab-ci.yml'
