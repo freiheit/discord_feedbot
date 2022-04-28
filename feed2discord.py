@@ -211,7 +211,7 @@ client = discord.Client(
 )
 
 
-def extract_best_item_date(item, tzinfo):
+async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
     # a feed, and extracts the "best" one.  Falls back to "now" if nothing
     # is found.
@@ -232,7 +232,7 @@ def extract_best_item_date(item, tzinfo):
     return tzinfo.localize(datetime.now())
 
 
-def should_send_typing(conf, feed_name):
+async def should_send_typing(conf, feed_name):
     global_send_typing = conf.getint("send_typing", 0)
     return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
 
@@ -242,7 +242,7 @@ def should_send_typing(conf, feed_name):
 # *, **, _, ~, `, ```: markup the field and return it from the feed item
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
-def process_field(field, item, FEED, channel):
+async def process_field(field, item, FEED, channel):
     logger.info("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get("item_url_base", None)
@@ -376,7 +376,7 @@ def process_field(field, item, FEED, channel):
 # truncates if too long.
 
 
-def build_message(FEED, item, channel):
+async def build_message(FEED, item, channel):
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -384,7 +384,7 @@ def build_message(FEED, item, channel):
     # Extract fields in order
     for field in fieldlist:
         logger.info("feed:item:build_message:%s:added to message", field)
-        message += process_field(field, item, FEED, channel) + "\n"
+        message += await process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
     message = re.sub(" +\n", "\n", message)
@@ -419,7 +419,7 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 
 async def actually_send_message(channel, message, delay, FEED, feed):
-    if should_send_typing(FEED, feed):
+    if await should_send_typing(FEED, feed):
         await channel["object"].send_typing()
 
     logger.info(
@@ -514,7 +514,7 @@ async def background_check_feed(feed, asyncioloop):
 
             # If send_typing is on for the feed, send a little "typing ..."
             # whenever a feed is being worked on.  configurable per-room
-            if should_send_typing(FEED, feed):
+            if await should_send_typing(FEED, feed):
                 for channel in channels:
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
@@ -676,7 +676,7 @@ async def background_check_feed(feed, asyncioloop):
                     continue
 
                 # Get our best date out, in both raw and parsed form
-                pubdate = extract_best_item_date(item, TIMEZONE)
+                pubdate = await extract_best_item_date(item, TIMEZONE)
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
                 logger.info(
@@ -755,7 +755,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
+                                    await process_field(
                                         filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
@@ -788,7 +788,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
+                                    await process_field(
                                         filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
@@ -819,7 +819,7 @@ async def background_check_feed(feed, asyncioloop):
                                     + ":item:building message for "
                                     + channel["name"]
                                 )
-                                message = build_message(FEED, item, channel)
+                                message = await build_message(FEED, item, channel)
                                 logger.info(
                                     feed
                                     + ":item:sending message (eventually) to "
