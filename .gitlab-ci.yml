@@ -12,7 +12,7 @@ include:
 - template: Security/SAST.gitlab-ci.yml
 - template: Security/Container-Scanning.gitlab-ci.yml
 - template: Security/Secret-Detection.gitlab-ci.yml
-image: python:3.6
+image: python:3.10
 before_script:
 - python --version
 - pip install -r requirements.txt
