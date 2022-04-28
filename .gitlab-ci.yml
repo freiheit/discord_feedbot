@@ -15,25 +15,12 @@ include:
 - project: 'renovate-bot/renovate-runner'
   file: '/templates/renovate-dind.gitlab-ci.yml'
 
-image: python:3.10
-before_script:
-- python --version
-- pip install -r requirements.txt
 stages:
 - build
 - test
 - deploy
 - dast
-flake8:
-  stage: test
-  allow_failure: true
-  script:
-  - flake8  --ignore=F841 --show-source --max-line-length=120 *.py
-pylint:
-  stage: test
-  allow_failure: true
-  script:
-  - pylint -d C0301 *.py
+
 sast:
   stage: test
 renovate:
