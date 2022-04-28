@@ -1,6 +1,7 @@
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![Discord server invite](https://discord.com/api/guilds/720538433965129769/embed.png)](https://discord.gg/5HK2yQj)
+[![Discord server invite](https://discord.com/api/guilds/910747606722965555/embed.png)](https://discord.gg/s97tH5Bsw6)
 [![pipeline status](https://gitlab.com/ffreiheit/discord_feedbot/badges/main/pipeline.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/pipelines)
+[![CodeQL](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml)
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
