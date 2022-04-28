@@ -1,4 +1,4 @@
-aiohttp==3.7.4
+aiohttp==3.8.1
 aiosqlite==0.17.0
 discord.py==1.7.3
 feedparser==6.0.8
