@@ -7,7 +7,7 @@ import pprint
 import sys
 import feedparser
 
-feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
+# feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
 
 # 0 is command itself:

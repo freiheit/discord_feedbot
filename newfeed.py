@@ -11,6 +11,7 @@ import in_place
 import os
 import re
 import pprint
+import readline
 import shutil
 import sys
 
@@ -76,23 +77,26 @@ fields = input("Feed Fields: ")
 
 name = input("Feed and Channel Name: ")
 
-room_id = default_room  # get type right
-
 
 class MyClient(discord.Client):
+    room_id = 0
+
     async def on_ready(self):
         print('Connected!')
         print('Username: {0.name}\nID: {0.id}'.format(self.user))
 
         old_room = self.get_channel(default_room)
         new_room = await old_room.clone(name=name, reason=f'feedbot {feed_url} {fields}')
-        room_id = new_room.id
+        await new_room.edit(reason="Update topic", topic=feed_url)
+        self.room_id = new_room.id
 
         await self.close()
 
 
 client = MyClient()
 client.run(login_token)
+
+room_id = client.room_id
 
 room_slug = f'{name} = {room_id}'
 

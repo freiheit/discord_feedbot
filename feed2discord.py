@@ -29,7 +29,7 @@ from dateutil.parser import parse as parse_datetime
 from html2text import HTML2Text
 
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
 
 
 PROG_NAME = "feedbot"
@@ -199,15 +199,19 @@ TIMEZONE = get_timezone(config)
 
 # Crazy workaround for a bug with parsing that doesn't apply on all
 # pythons:
-feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
+# feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
 
 # global discord client object
-# No offline_members as we don't use them
-client = discord.Client(fetch_offline_members=False)
+# Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
+client = discord.Client(
+    chunk_guilds_at_startup=False,
+    member_cache_flags=discord.MemberCacheFlags.none(),
+    max_messages=None
+)
 
 
-def extract_best_item_date(item, tzinfo):
+async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
     # a feed, and extracts the "best" one.  Falls back to "now" if nothing
     # is found.
@@ -228,7 +232,7 @@ def extract_best_item_date(item, tzinfo):
     return tzinfo.localize(datetime.now())
 
 
-def should_send_typing(conf, feed_name):
+async def should_send_typing(conf, feed_name):
     global_send_typing = conf.getint("send_typing", 0)
     return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
 
@@ -238,7 +242,7 @@ def should_send_typing(conf, feed_name):
 # *, **, _, ~, `, ```: markup the field and return it from the feed item
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
-def process_field(field, item, FEED, channel):
+async def process_field(field, item, FEED, channel):
     logger.info("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get("item_url_base", None)
@@ -372,7 +376,7 @@ def process_field(field, item, FEED, channel):
 # truncates if too long.
 
 
-def build_message(FEED, item, channel):
+async def build_message(FEED, item, channel):
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -380,7 +384,7 @@ def build_message(FEED, item, channel):
     # Extract fields in order
     for field in fieldlist:
         logger.info("feed:item:build_message:%s:added to message", field)
-        message += process_field(field, item, FEED, channel) + "\n"
+        message += await process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
     message = re.sub(" +\n", "\n", message)
@@ -415,7 +419,7 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 
 async def actually_send_message(channel, message, delay, FEED, feed):
-    if should_send_typing(FEED, feed):
+    if await should_send_typing(FEED, feed):
         await channel["object"].send_typing()
 
     logger.info(
@@ -498,14 +502,19 @@ async def background_check_feed(feed, asyncioloop):
     # Basically run forever
     while True:
 
-        # And tries to catch all the exceptions and just keep going
+        # And try to catch all the exceptions and just keep going
         # (but see list of except/finally stuff below)
         try:
+            # set current "game played" constantly so that it sticks around
+            gameplayed = MAIN.get(
+                "gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+            await client.change_presence(activity=discord.Game(name=gameplayed))
+
             logger.info(feed + ": processing feed")
 
             # If send_typing is on for the feed, send a little "typing ..."
             # whenever a feed is being worked on.  configurable per-room
-            if should_send_typing(FEED, feed):
+            if await should_send_typing(FEED, feed):
                 for channel in channels:
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
@@ -525,7 +534,8 @@ async def background_check_feed(feed, asyncioloop):
             # Debugging crazy issues
             logger.info(feed + ":db_debug:db_path=" + db_path)
 
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(db_path,rss_refresh_time)
+#            conn = sqlite3.connect(db_path)
 
             # Download the actual feed, if changed since last fetch
 
@@ -608,6 +618,9 @@ async def background_check_feed(feed, asyncioloop):
             logger.info(feed + ":reading http response")
             http_data = await http_response.read()
 
+            # Apparently we need to sleep before closing an SSL connection?
+            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+            await asyncio.sleep(5)
             await httpclient.close()
 
             # parse the data from the http response with feedparser
@@ -651,48 +664,48 @@ async def background_check_feed(feed, asyncioloop):
             for item in reversed(feed_data.entries):
 
                 # Pull out the unique id, or just give up on this item.
-                id = ""
+                itemid = ""
                 if "id" in item:
-                    id = item.id
+                    itemid = item.id
                 elif "guid" in item:
-                    id = item.guid
+                    itemid = item.guid
                 elif "link" in item:
-                    id = item.link
+                    itemid = item.link
                 else:
-                    logger.error(feed + ":item:no id, skipping")
+                    logger.error(feed + ":item:no itemid, skipping")
                     continue
 
                 # Get our best date out, in both raw and parsed form
-                pubdate = extract_best_item_date(item, TIMEZONE)
+                pubdate = await extract_best_item_date(item, TIMEZONE)
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
                 logger.info(
                     "%s:item:processing this entry:%s:%s:%s",
                     feed,
-                    id,
+                    itemid,
                     pubdate_fmt,
                     item.title,
                 )
 
-                logger.info(feed + ":item:id:" + id)
+                logger.info(feed + ":item:itemid:" + itemid)
                 logger.info(
                     feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
                     "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
-                    [id],
+                    [itemid],
                 )
                 data = cursor.fetchone()
 
                 # If we've never seen it before, then actually processing
                 # this:
                 if data is None:
-                    logger.info(feed + ":item " + id + " unseen, processing:")
+                    logger.info(feed + ":item " + itemid + " unseen, processing:")
 
                     # Store info about this item, so next time we skip it:
                     conn.execute(
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
-                        [id, pubdate_fmt],
+                        [itemid, pubdate_fmt],
                     )
                     conn.commit()
 
@@ -704,6 +717,9 @@ async def background_check_feed(feed, asyncioloop):
                     time_since_published = TIMEZONE.localize(
                         datetime.now()
                     ) - pubdate.astimezone(TIMEZONE)
+
+                    logger.debug('%s:time_since_published.total_seconds:%s,max_age:%s',
+                                 feed, time_since_published.total_seconds(), max_age)
 
                     if time_since_published.total_seconds() < max_age:
                         logger.info(feed + ":item:fresh and ready for parsing")
@@ -739,7 +755,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
+                                    await process_field(
                                         filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
@@ -772,7 +788,7 @@ async def background_check_feed(feed, asyncioloop):
                                 )
                                 regexmatch = re.search(
                                     regexpat,
-                                    process_field(
+                                    await process_field(
                                         filter_field, item, FEED, channel),
                                 )
                                 if regexmatch is None:
@@ -803,7 +819,7 @@ async def background_check_feed(feed, asyncioloop):
                                     + ":item:building message for "
                                     + channel["name"]
                                 )
-                                message = build_message(FEED, item, channel)
+                                message = await build_message(FEED, item, channel)
                                 logger.info(
                                     feed
                                     + ":item:sending message (eventually) to "
@@ -831,7 +847,7 @@ async def background_check_feed(feed, asyncioloop):
                 # seen before, move on:
                 else:
                     logger.info(
-                        feed + ":item:" + id + " seen before, skipping")
+                        feed + ":item:" + itemid + " seen before, skipping")
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.info(
@@ -865,7 +881,8 @@ async def background_check_feed(feed, asyncioloop):
         # unknown error: definitely give up and die and move on
         except Exception:
             logger.exception("Unexpected error - giving up")
-            raise
+            # Don't raise?
+            # raise
         # No matter what goes wrong, wait same time and try again
         finally:
             logger.info(
@@ -878,14 +895,7 @@ async def background_check_feed(feed, asyncioloop):
 
 # @client.async_event
 async def on_ready():
-    logger.info("Logged in as %r (%r)" % (client.user.name, client.user.id))
-
-    # set current game played
-    gameplayed = MAIN.get("gameplayed", "github/freiheit/discord_feedbot")
-    if gameplayed:
-        await client.change_presence(
-            game=discord.Game(name=gameplayed), status=discord.Status.idle
-        )
+    logger.info("Logged in")
 
     # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
@@ -904,6 +914,7 @@ def main():
     sql_maintenance(config)
 
     try:
+        loop.create_task(on_ready())
         for feed in feeds:
             loop.create_task(background_check_feed(feed, loop))
         if "login_token" in MAIN:

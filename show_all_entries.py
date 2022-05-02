@@ -7,9 +7,6 @@ import pprint
 import sys
 import feedparser
 
-feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
-
-
 # 0 is command itself:
 if len(sys.argv) == 2:
     feed_url = sys.argv[1]

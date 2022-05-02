@@ -1,44 +1,28 @@
-# including some GitLab "templates" to enable their automatic checking of stuff
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
 include:
-  # Static Application Security Testing
-  - template: SAST.gitlab-ci.yml
-
-  # Check dependencies for potential problems
-  - template: Dependency-Scanning.gitlab-ci.yml
-
-  # License Scanning; Overkill, but shouldn't hurt
-  - template: License-Scanning.gitlab-ci.yml
-
-image: "python:3.6"
-
-before_script:
-  - python --version
-  - pip install -r requirements.txt
+- template: SAST.gitlab-ci.yml
+- template: Dependency-Scanning.gitlab-ci.yml
+- template: License-Scanning.gitlab-ci.yml
+- template: Security/SAST.gitlab-ci.yml
+- template: Security/Secret-Detection.gitlab-ci.yml
+- project: 'renovate-bot/renovate-runner'
+  file: '/templates/renovate-dind.gitlab-ci.yml'
 
 stages:
-  - build
-  - test
-  - deploy
-  - dast
+- build
+- test
+- deploy
+- dast
 
-flake8:
+sast:
   stage: test
-  allow_failure: true
-  script:
-  - flake8  --ignore=F841 --show-source --max-line-length=120 *.py
-  
-#mypy:
-#  stage: test
-#  allow_failure: true
-#  script:
-#  - pwd
-#  - ls -l
-#  - python -m mypy feed2discord.py
-#  - python -m mypy show_all_entries.py
-#  - python -m mypy show_sample_entry.py
-  
-pylint:
-  stage: test
-  allow_failure: true
-  script:
-  - pylint -d C0301 *.py
+renovate:
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "schedule"'
+        - if: '$CI_PIPELINE_SOURCE == "push"'
