@@ -9,6 +9,7 @@ import os
 import random
 import re
 import sqlite3
+import aiomysql
 import sys
 import time
 import warnings
@@ -166,6 +167,13 @@ def get_feeds_config(config):
 
     return feeds
 
+def get_sql_connection(config):
+    db_engine = config["MAIN"].get("db_engine", "sqlite")
+    if db_engine == "sqlite":
+      conn = get_sqlite_connection(config)
+    else if db_engine == "mysql":
+      conn = get_mysql_connection(config)
+    return conn
 
 def get_sqlite_connection(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
@@ -174,8 +182,7 @@ def get_sqlite_connection(config):
 
 
 def sql_maintenance(config):
-    db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = sqlite3.connect(db_path)
+    conn = get_sql_connection(config)
 
     # If our two tables don't exist, create them.
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
@@ -534,8 +541,7 @@ async def background_check_feed(feed, asyncioloop):
             # Debugging crazy issues
             logger.info(feed + ":db_debug:db_path=" + db_path)
 
-            conn = sqlite3.connect(db_path,rss_refresh_time)
-#            conn = sqlite3.connect(db_path)
+            conn = get_sql_connection(config)
 
             # Download the actual feed, if changed since last fetch
 
