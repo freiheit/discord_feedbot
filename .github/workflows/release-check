@@ -1,0 +1,21 @@
+name: Release Action
+
+on:
+- push
+- pull_request:
+    branches: 
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps: 
+    - id: release
+      uses: phish108/release-check@1.0.11-main.3
+      with: 
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - if: ${{ steps.release.outputs.proceed }}
+      uses: phish108/autotag-action@1.1.27
+      with: 
+        github-token: ${{ secrets.GITHUB_TOKEN }}
