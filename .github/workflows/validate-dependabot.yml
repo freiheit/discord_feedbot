@@ -1,2 +1,0 @@
-- name: validate-dependabot
-  uses: marocchino/validate-dependabot@v1.1.0
