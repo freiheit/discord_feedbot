@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM alpine:3.16
 LABEL maintainer "Eric Eisenhart <discord-feedbot-docker@eric.eisenhart.name>"
 
 # Base image setup and important dependencies
