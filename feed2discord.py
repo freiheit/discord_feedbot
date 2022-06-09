@@ -9,7 +9,6 @@ import os
 import random
 import re
 import sqlite3
-import aiomysql
 import sys
 import time
 import warnings
