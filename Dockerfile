@@ -4,7 +4,7 @@ LABEL maintainer "Eric Eisenhart <discord-feedbot-docker@eric.eisenhart.name>"
 # Base image setup and important dependencies
 RUN apk add --update --no-cache \
 		ca-certificates \
-		libressl2.4-libssl \
+		libressl-dev \
 		python3 && \
 	python3 -m ensurepip && \
 	rm -r /usr/lib/python*/ensurepip && \
