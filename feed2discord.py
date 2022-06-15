@@ -171,7 +171,7 @@ def get_sql_connection(config):
     db_engine = config["MAIN"].get("db_engine", "sqlite")
     if db_engine == "sqlite":
       conn = get_sqlite_connection(config)
-    else if db_engine == "mysql":
+    elif db_engine == "mysql":
       conn = get_mysql_connection(config)
     return conn
 
