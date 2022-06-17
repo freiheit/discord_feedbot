@@ -1,6 +1,6 @@
 [![Discord server invite](https://discord.com/api/guilds/910747606722965555/embed.png)](https://discord.gg/s97tH5Bsw6)
 [![Latest Release](https://gitlab.com/ffreiheit/discord_feedbot/-/badges/release.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/releases)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6142/badge)](https://bestpractices.coreinfrastructure.org/projects/6142)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6176/badge)](https://bestpractices.coreinfrastructure.org/projects/6176)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![CodeQL](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml)
 [![Dependency Review](https://github.com/freiheit/discord_feedbot/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/freiheit/discord_feedbot/actions/workflows/dependency-review.yml)
