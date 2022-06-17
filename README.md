@@ -65,7 +65,6 @@ If you don't need _live_ changes, since this bot is read-only, it can easily
 be running alongside another bot using same account to appear as a single
 user.
 
-
 # Frequently Asked Questions (FAQ)
 FAQ items are in 
 [INSTALLING.md](INSTALLING.md) and 
