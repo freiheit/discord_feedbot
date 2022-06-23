@@ -1,4 +1,4 @@
-import os, chevron
+import os, chevron, json
 
 class DockerConfigBuilder:
     def __init__(self):
@@ -20,14 +20,19 @@ class DockerConfigBuilder:
         self.max_age = self.env_var_exist('MAX_AGE') or 86400
         self.one_send_typing = self.env_var_exist('ONE_SEND_TYPING') or 1 
         self.two_send_typing = self.env_var_exist('TWO_SEND_TYPING') or 0
-        self.feeds = self.env_var_exist('FEEDS') or [
+        self.feeds = self.parse_feed()
+
+    def parse_feed(self):
+        feeds = self.env_var_exist('FEEDS')
+        return json.loads(feeds) if feeds else [
             {
-                'name': 'my-super-feed',
+                "name": "my-super-feed",
                 "channel": "FAKE_ID_CHANNEL",
-                'url': 'https://www.cert.ssi.gouv.fr/alerte/feed/',
-                'fields': 'guid,**title**,_published_,description'
+                "url": "https://www.cert.ssi.gouv.fr/alerte/feed/",
+                "fields": "guid,**title**,_published_,description"
             },
         ]
+
     def env_var_exist(self, env_name):
         if env_name in os.environ:
             return os.environ[env_name]
