@@ -241,7 +241,7 @@ async def should_send_typing(conf, feed_name):
 # *, **, _, ~, `, ```: markup the field and return it from the feed item
 # " around the field: string literal
 # Added new @, turns each comma separated tag into a group mention
-async def process_field(field, item, FEED, channel):
+async def process_field(field, item, FEED, channel, client):
     logger.info("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get("item_url_base", None)
@@ -375,7 +375,7 @@ async def process_field(field, item, FEED, channel):
 # truncates if too long.
 
 
-async def build_message(FEED, item, channel):
+async def build_message(FEED, item, channel, client):
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -383,7 +383,7 @@ async def build_message(FEED, item, channel):
     # Extract fields in order
     for field in fieldlist:
         logger.info("feed:item:build_message:%s:added to message", field)
-        message += await process_field(field, item, FEED, channel) + "\n"
+        message += await process_field(field, item, FEED, channel, client) + "\n"
 
     # Naked spaces are terrible:
     message = re.sub(" +\n", "\n", message)
@@ -809,7 +809,7 @@ class CheckFeed():
                             regexmatch = re.search(
                                 regexpat,
                                 await process_field(
-                                    filter_field, item, self.feed_config, channel),
+                                    filter_field, item, self.feed_config, channel, self.client),
                             )
                             if regexmatch is None:
                                 include = False
@@ -842,7 +842,7 @@ class CheckFeed():
                             regexmatch = re.search(
                                 regexpat,
                                 await process_field(
-                                    filter_field, item, self.feed_config, channel),
+                                    filter_field, item, self.feed_config, channel, self.client),
                             )
                             if regexmatch is None:
                                 include = True
@@ -872,7 +872,7 @@ class CheckFeed():
                                 + ":item:building message for "
                                 + channel["name"]
                             )
-                            message = await build_message(self.feed_config, item, channel, self)
+                            message = await build_message(self.feed_config, item, channel, self.client)
                             logger.info(
                                 self.feed
                                 + ":item:sending message (eventually) to "
