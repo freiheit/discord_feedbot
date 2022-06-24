@@ -210,16 +210,6 @@ TIMEZONE = get_timezone(config)
 # pythons:
 # feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
-
-# global discord client object
-# Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
-client = discord.Client(
-    chunk_guilds_at_startup=False,
-    member_cache_flags=discord.MemberCacheFlags.none(),
-    max_messages=None
-)
-
-
 async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
     # a feed, and extracts the "best" one.  Falls back to "now" if nothing
@@ -462,7 +452,7 @@ async def actually_send_message(channel, message, delay, FEED, feed):
 # One of these is run for each feed.
 # It's an asyncio thing. "await" (sleep or I/O) returns to main loop
 # and gives other feeds a chance to run.
-async def background_check_feed(feed, asyncioloop):
+async def background_check_feed(feed, asyncioloop, client):
 
     logger.info(feed + ": Starting up background_check_feed")
 
@@ -915,30 +905,45 @@ async def on_ready():
 
 # Set up the tasks for each feed and start the main event loop thing.
 # In this __main__ thing so can be used as library.
-def main():
-    loop = asyncio.get_event_loop()
+class FeedBot(discord.Client):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.check_feed = CheckFeed(self)
+        self.client_options = kwargs
+        self.config, self.logger = get_config()
+        self.feeds = get_feeds_config(config)
+    
+    # This method override native on_ready function
+    async def on_ready(self) -> None:
+        logger.info(f'Logged in as {self.user} (ID: {self.user.id})')
+        logger.info('------')
 
-    feeds = get_feeds_config(config)
-    sql_maintenance(config)
+        # set avatar if specified
+        avatar_file_name = MAIN.get("avatarfile")
+        if avatar_file_name:
+            with open(avatar_file_name, "rb") as f:
+                avatar = f.read()
+            await self.edit_profile(avatar=avatar)
+        
+        await self.wait_until_ready()
 
-    try:
-        loop.create_task(on_ready())
-        for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
-        if "login_token" in MAIN:
-            loop.run_until_complete(client.login(MAIN.get("login_token")))
-        else:
-            loop.run_until_complete(
-                client.login(
-                    MAIN.get("login_email"),
-                    MAIN.get("login_password"))
-            )
-        loop.run_until_complete(client.connect())
-    except Exception:
-        loop.run_until_complete(client.close())
-    finally:
-        loop.close()
-
+        try:
+            for feed in self.feeds:
+                await self.loop.create_task(background_check_feed(feed, self.loop, self))
+            await self.loop.run_until_complete(self.connect())
+        except Exception:
+            await self.loop.run_until_complete(self.close())
+        finally:
+            await self.loop.close()
 
 if __name__ == "__main__":
-    main()
+
+# global discord client object
+# Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
+
+    feedbot = FeedBot(
+        chunk_guilds_at_startup=False,
+        member_cache_flags=discord.MemberCacheFlags.none(),
+        max_messages=None,
+    )
+    feedbot.run(MAIN.get("login_token"))
