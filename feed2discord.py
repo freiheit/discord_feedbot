@@ -182,9 +182,8 @@ def get_sqlite_connection(config):
     conn = sqlite3.connect(db_path)
     return conn
 
-
-def sql_maintenance(config):
-    conn = get_sql_connection(config)
+def sql_maintenance(config, conn=None):
+    conn = get_sql_connection(config) if conn == None else conn
 
     # If our two tables don't exist, create them.
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
@@ -196,7 +195,8 @@ def sql_maintenance(config):
     # re-evaluating them.
     conn.execute(SQL_CLEAN_OLD_ITEMS)
 
-    conn.close()
+    if conn == None:
+        conn.close()
 
 
 config, logger = get_config()
