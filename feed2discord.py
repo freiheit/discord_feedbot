@@ -166,6 +166,9 @@ def get_feeds_config(config):
 
     return feeds
 
+def is_docker() -> bool:
+    return config["MAIN"].get('docker') or False
+
 def get_sql_connection(config):
     db_engine = config["MAIN"].get("db_engine", "sqlite")
     if db_engine == "sqlite":
