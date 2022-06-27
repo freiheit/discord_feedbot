@@ -34,11 +34,15 @@ Head to https://discord.gg/s97tH5Bsw6 and "Follow" the rooms you want.
 
 (I have some other feeds, but E:D is the most thoroughly covered)
 
+# Docker usage 
+
+For an **easy startup and configuration** you can try it with docker
+
+See [DOCKER.md](DOCKER.md)
 
 # Installation / Initial Setup
 
 See [INSTALLING.md](INSTALLING.md)
-
 
 # Adding feeds
 
