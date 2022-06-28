@@ -475,54 +475,53 @@ class CheckFeed():
         logger.info(self.feed + ": Starting up background_check_feed")
 
         self.channels = await self.register_channels()
-        # await self.skew_sleep_before_refresh()
+        await self.skew_sleep_before_refresh()
 
-        while True:
-            try:
-                await self.proccessing_feed()
-            # This is completely expected behavior for a well-behaved feed:
-            except HTTPNotModified:
-                logger.info(
-                    self.feed + ":Headers indicate feed unchanged since last time fetched:"
-                )
-                logger.debug(sys.exc_info())
-            # Many feeds have random periodic problems that shouldn't cause
-            # permanent death:
-            except HTTPError:
-                logger.warn(self.feed + ":Unexpected HTTP error:")
-                logger.warn(sys.exc_info())
-                logger.warn(
-                    self.feed + ":Assuming error is transient and trying again later")
-            # sqlite3 errors are probably really bad and we should just totally
-            # give up on life
-            except sqlite3.Error as sqlerr:
-                logger.error(self.feed + ":sqlite error: ")
-                logger.error(sys.exc_info())
-                logger.error(sqlerr)
-                raise
-            # Ideally we'd remove the specific channel or something...
-            # But I guess just throw an error into the log and try again later...
-            except discord.errors.Forbidden:
-                logger.error(self.feed + ":discord.errors.Forbidden")
-                logger.error(sys.exc_info())
-                logger.error(
-                    self.feed
-                    + ":Perhaps bot isn't allowed in one of the channels for this feed?"
-                )
-                # raise # or not? hmm...
-            # unknown error: definitely give up and die and move on
-            except Exception:
-                logger.exception("Unexpected error - giving up")
-                # Don't raise?
-                # raise
-            # No matter what goes wrong, wait same time and try again
-            finally:
-                logger.info(
-                    self.feed +
-                    ":sleeping for " +
-                    str(self.rss_refresh_time) +
-                    " seconds")
-                await asyncio.sleep(self.rss_refresh_time)
+        try:
+            await self.proccessing_feed()
+        # This is completely expected behavior for a well-behaved feed:
+        except HTTPNotModified:
+            logger.info(
+                self.feed + ":Headers indicate feed unchanged since last time fetched:"
+            )
+            logger.debug(sys.exc_info())
+        # Many feeds have random periodic problems that shouldn't cause
+        # permanent death:
+        except HTTPError:
+            logger.warn(self.feed + ":Unexpected HTTP error:")
+            logger.warn(sys.exc_info())
+            logger.warn(
+                self.feed + ":Assuming error is transient and trying again later")
+        # sqlite3 errors are probably really bad and we should just totally
+        # give up on life
+        except sqlite3.Error as sqlerr:
+            logger.error(self.feed + ":sqlite error: ")
+            logger.error(sys.exc_info())
+            logger.error(sqlerr)
+            raise
+        # Ideally we'd remove the specific channel or something...
+        # But I guess just throw an error into the log and try again later...
+        except discord.errors.Forbidden:
+            logger.error(self.feed + ":discord.errors.Forbidden")
+            logger.error(sys.exc_info())
+            logger.error(
+                self.feed
+                + ":Perhaps bot isn't allowed in one of the channels for this feed?"
+            )
+            # raise # or not? hmm...
+        # unknown error: definitely give up and die and move on
+        except Exception:
+            logger.exception("Unexpected error - giving up")
+            # Don't raise?
+            # raise
+        # No matter what goes wrong, wait same time and try again
+        finally:
+            logger.info(
+                self.feed +
+                ":sleeping for " +
+                str(self.rss_refresh_time) +
+                " seconds")
+            await asyncio.sleep(self.rss_refresh_time)
 
     async def skew_sleep_before_refresh(self):
         start_skew = self.feed_config.getint("start_skew", self.rss_refresh_time)
@@ -560,9 +559,9 @@ class CheckFeed():
     # And try to catch all the exceptions and just keep going
     # (but see list of except/finally stuff below)
         # set current "game played" constantly so that it sticks around
-        # gameplayed = MAIN.get(
-        #     "gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
-        # await self.client.change_presence(activity=discord.Game(name=gameplayed))
+        gameplayed = MAIN.get(
+            "gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+        await self.client.change_presence(activity=discord.Game(name=gameplayed))
 
         logger.info(self.feed + ": processing feed")
 
@@ -927,9 +926,10 @@ class FeedBot(discord.Client):
         await self.wait_until_ready()
 
         try:
-            for feed in self.feeds:
-                await self.loop.create_task(self.check_feed.run_task(feed, self.loop))
-            await self.loop.run_until_complete(self.connect())
+            while True: 
+                for feed in self.feeds:
+                    await self.loop.create_task(self.check_feed.run_task(feed, self.loop))
+
         except Exception:
             await self.loop.run_until_complete(self.close())
         finally:
