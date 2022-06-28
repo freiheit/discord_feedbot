@@ -18,7 +18,7 @@ from configparser import ConfigParser
 from datetime import datetime
 from importlib import reload
 from urllib.parse import urljoin
-from pprint import pformat
+from pprint import pformat, pprint
 
 import aiohttp
 import discord
@@ -245,6 +245,11 @@ async def process_field(field, item, FEED, channel, client):
     logger.info("%s:process_field:%s: started", FEED, field)
 
     item_url_base = FEED.get("item_url_base", None)
+
+    if '&amp;lt;' or '&amp;gt' in field:
+        field = field.replace('&amp;lt;', '<')
+        field = field.replace('&amp;gt;', '>')
+
     if field == "guid" and item_url_base is not None:
         if "guid" in item:
             return item_url_base + item["guid"]
@@ -269,7 +274,6 @@ async def process_field(field, item, FEED, channel, client):
         return stringmatch.group(1)  # string from config
     elif highlightmatch is not None:
         logger.info("%s:process_field:%s:isHighlight", FEED, field)
-
         # If there's any markdown on the field, return field with that
         # markup on it:
         begin, field, end = highlightmatch.groups()
@@ -337,6 +341,7 @@ async def process_field(field, item, FEED, channel, client):
 
     else:
         logger.info("%s:process_field:%s:isPlain", FEED, field)
+
         # Just asking for plain field:
         if field in item:
             # If field is special field "link",
