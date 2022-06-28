@@ -61,8 +61,7 @@ You can avoid using json config file by simply adding token and feeds through en
 |----|----| ----|
 | `TOKEN` | Only if `config.json` is not set. Your bot token, it's **mandatory** variable. | "" |
 | `FEEDS` | Only if `config.json` is not set. The feeds you want to be used by the bot. | "" |
-| `DEBUG` | Debug mode number. <ul><li>`0` just prints some basic info as thing runs <li>`1` prints debug stuff for this bot</li><li>`2` and above start printing debug stuff for libraries, etc</li><li>`4` and above includes full parsed items, which can be quite verbose... </li>
-| 2 |
+| `DEBUG` | Debug mode number. <ul><li>`0` just prints some basic info as thing runs <li>`1` prints debug stuff for this bot</li><li>`2` and above start printing debug stuff for libraries, etc</li><li>`4` and above includes full parsed items, which can be quite verbose... </li> | 2 |
 | `TIMEZONE` | Your timezone in string  | "utc"
 | `PUBLISH` | Feature to post on channel followed on multiple server. | 0 |
 | `SKEW_MIN` | Minimum sleep time at startup, in second | 1 |
