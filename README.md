@@ -89,4 +89,5 @@ I have a very few costs associated with this project. (under $10/month)
 I'm happy to donate my time.
 But if you want to thank me financially:
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)
+Or: https://discord.com/servers/feedbot-910747606722965555
 
