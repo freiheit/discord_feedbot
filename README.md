@@ -1,5 +1,4 @@
-[![Discord server invite](https://discord.com/api/guilds/910747606722965555/embed.png)](https://discord.gg/s97tH5Bsw6)
- [Discord Support](https://discord.com/servers/feedbot-910747606722965555) 
+[![Discord server](https://discord.com/api/guilds/910747606722965555/embed.png)](https://discord.com/servers/feedbot-910747606722965555)
 [![Latest Release](https://gitlab.com/ffreiheit/discord_feedbot/-/badges/release.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/releases)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6176/badge)](https://bestpractices.coreinfrastructure.org/projects/6176)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
