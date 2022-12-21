@@ -14,3 +14,4 @@ requests>=2.27.1<=3
 six>=1.16.0<=2
 urllib3>=1.26.9<=2
 ws4py>=0.5.1<=1
+feedsearch_crawler
