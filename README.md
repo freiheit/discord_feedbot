@@ -19,7 +19,8 @@ Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
 
-It should be possible to use as a library in another bot.
+It should be possible to use as a library in another bot. (But can simply
+run with same tokens instead, since it's write-only to discord)
 
 Since this bot doesn't *react* to anything in channels or messages, you can
 have it sign into the same account as another bot, and externally it should 
