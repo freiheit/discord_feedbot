@@ -686,11 +686,10 @@ async def background_check_feed(feed, asyncioloop):
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
                 logger.info(
-                    "%s:item:processing this entry:%s:%s:%s",
+                    "%s:item:processing this entry:%s:%s",
                     feed,
                     itemid,
                     pubdate_fmt,
-                    item.title,
                 )
 
                 logger.info(feed + ":item:itemid:" + itemid)
