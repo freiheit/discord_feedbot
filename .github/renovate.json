@@ -3,7 +3,6 @@
     "config:base"
   ],
   "labels": ["dependencies"],
-  "assignees": ["freiheit@gmail.com"],
   "dependencyDashboardAutoclose": true,
   "timezone": "America/Los_Angeles",
   "schedule": [
