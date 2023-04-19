@@ -14,4 +14,4 @@ six>=1.16.0<=2
 urllib3>=1.26.9<=2
 ws4py>=0.5.1<=1
 websockets
-chevron==0.13.1
+chevron==0.14.0
