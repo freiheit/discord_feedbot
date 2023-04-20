@@ -1,4 +1,4 @@
-# [Discord RSS Bot, now with whales!](https://github.com/freiheit/discord_feedbot)
+# [Discord RSS Bot, now with whales!](https://gitlab.com/discord_feedbot/discord_feedbot)
 
 ![Angry docker avatar](avatars/docker-avatar.png)
 
