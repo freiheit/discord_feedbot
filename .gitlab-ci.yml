@@ -18,3 +18,7 @@ stages:
 pages:
     script:
         - echo No pages
+        
+run:
+    script:
+        - echo Not running it for now
