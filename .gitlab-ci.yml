@@ -18,6 +18,7 @@ stages:
 pages:
     script:
         - echo No pages
+    artifacts: {}
         
 run:
     script:
