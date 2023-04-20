@@ -22,3 +22,8 @@ pages:
 run:
     script:
         - echo Not running it for now
+
+test:
+    script:
+        - pip install tox flake8
+        - tox -e py,flake8
