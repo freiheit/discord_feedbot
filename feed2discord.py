@@ -565,7 +565,7 @@ class CheckFeed():
     # (but see list of except/finally stuff below)
         # set current "game played" constantly so that it sticks around
         gameplayed = MAIN.get(
-            "gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+            "gameplayed", "gitlab.com/discord_feedbot/discord_feedbot")
         await self.client.change_presence(activity=discord.Game(name=gameplayed))
 
         logger.info(self.feed + ": processing feed")

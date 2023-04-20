@@ -9,4 +9,4 @@ This may change if breaking changes in a release make it reasonable to run an ol
 ## Reporting a Vulnerability
 
 Please report security vulnerabilities via a Confidential GitLab Issue at: 
-https://gitlab.com/ffreiheit/discord_feedbot/-/issues/new
+https://gitlab.com/discord_feedbot/discord_feedbot/-/issues/new
