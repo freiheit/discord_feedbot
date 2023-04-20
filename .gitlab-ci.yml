@@ -1,18 +1,13 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
-# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
-# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
-# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+# https://gitlab.com/gitlab-org/gitlab-foss/tree/master/lib/gitlab/ci/templates
+
+
 include:
 - template: SAST.gitlab-ci.yml
 - template: Dependency-Scanning.gitlab-ci.yml
 - template: Security/SAST.gitlab-ci.yml
 - template: Security/Secret-Detection.gitlab-ci.yml
-
-#- project: 'renovate-bot/renovate-runner'
-#  file: '/templates/renovate-dind.gitlab-ci.yml'
+- template: Python.gitlab-ci.yml 
+- template: Code-Quality.gitlab-ci.yml
 
 stages:
 - build
@@ -20,9 +15,3 @@ stages:
 - deploy
 - dast
 
-sast:
-  stage: test
-renovate:
-    rules:
-        - if: '$CI_PIPELINE_SOURCE == "schedule"'
-        - if: '$CI_PIPELINE_SOURCE == "push"'
