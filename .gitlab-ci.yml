@@ -7,7 +7,7 @@ include:
 #- template: Security/SAST.gitlab-ci.yml
 #- template: Security/Secret-Detection.gitlab-ci.yml
 - template: Python.gitlab-ci.yml 
-#- template: Code-Quality.gitlab-ci.yml
+- template: Code-Quality.gitlab-ci.yml
 
 stages:
 - build
