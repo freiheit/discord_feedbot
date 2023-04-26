@@ -37,13 +37,10 @@ running it via Docker (or other compatible container systems).
     - Look at tools/feedbot.service for example for Linux with systemd option
 
 # Requirements
-(see also requirements.txt)
 - Python 3.8+ (discord.py requires 3.8+. 3.9 is what I'm running it with)
-- sqlite3 -- Usually comes with python
-- [discord.py](https://github.com/Rapptz/discord.py)
-- [feedparser](https://pypi.python.org/pypi/feedparser)
-- [html2text](https://pypi.python.org/pypi/html2text)
-- [in_place](https://pypi.org/project/in-place/) (only used by newfeed.py; otherwise optional)
+See requirements.txt for the rest.
+
+`pip3 install --user requirements.txt` should do the trick.
 
 ## How do I figure out my timezone?
 On Windows, check settings/time for the timezone or run "tzutil /g".
