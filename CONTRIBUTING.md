@@ -9,18 +9,17 @@ change, the more important this is.
 Come to https://discord.gg/s97tH5Bsw6 and talk in the #dev room.
 
 ## Git service
-The primary location of this repo is: https://gitlab.com/discord_feedbot/discord_feedbot
+This repo is two-way synced between GitLab and GitHub at
+https://gitlab.com/ffreiheit/discord_feedbot and https://github.com/freiheit/discord_feedbot
 
-It's mirrored to https://github.com/freiheit/discord_feedbot -- but that's
-secondary.
+I prefer GitLab and consider that the "primary" repository for this project,
+but either works.
 
 ## Bug reports
-Preferred avenue for bug reports is an Issue filed at
-https://gitlab.com/discord_feedbot/discord_feedbot/-/issues
+Preferred avenue for bug reports is an Issue filed at https://gitlab.com/ffreiheit/discord_feedbot/-/issues
 
 ### Security Bugs
-Check the "confidential" checkbox when submitting an Issue at
-https://gitlab.com/discord_feedbot/discord_feedbot/-/issues
+Check the "confidential" checkbox when submitting an Issue at https://gitlab.com/ffreiheit/discord_feedbot/-/issues
 
 ## Pull Requests
 
@@ -111,7 +110,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement via
-"confidential" issue at https://gitlab.com/discord_feedbot/discord_feedbot/-/issues.
+"confidential" issue at https://gitlab.com/ffreiheit/discord_feedbot/-/issues.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
