@@ -85,6 +85,15 @@ Preferred avenue for bug reports is an Issue filed at https://gitlab.com/ffreihe
 ### Security Bugs
 Check the "confidential" checkbox when submitting an Issue at https://gitlab.com/ffreiheit/discord_feedbot/-/issues
 
+## Tech Stack
+freiheit/discord_feedbot is built on the following main stack:
+- [Python](https://www.python.org) – Languages
+- [Shell](https://en.wikipedia.org/wiki/Shell_script) – Shells
+- [Pylint](https://www.pylint.org/) – Code Review
+- [GitHub Actions](https://github.com/features/actions) – Continuous Integration
+
+Full tech stack [here](/techstack.md)
+
 # Financial Support
 I have a very few costs associated with this project. (under $10/month)
 I'm happy to donate my time.
