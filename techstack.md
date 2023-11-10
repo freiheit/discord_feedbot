@@ -49,7 +49,29 @@ Full tech stack [here](/techstack.md)
 </tr>
 </table>
 
+## <img src='https://img.stackshare.io/databases.svg'/> Data (1)
+<table><tr>
+  <td align='center'>
+  <img width='36' height='36' src='https://img.stackshare.io/service/1025/logo-mysql-170x170.png' alt='MySQL'>
+  <br>
+  <sub><a href="http://www.mysql.com">MySQL</a></sub>
+  <br>
+  <sub></sub>
+</td>
+
+</tr>
+</table>
+
 ## <img src='https://img.stackshare.io/devops.svg'/> DevOps (4)
+<table><tr>
+  <td align='center'>
+  <img width='36' height='36' src='https://img.stackshare.io/service/586/n4u37v9t_400x400.png' alt='Docker'>
+  <br>
+  <sub><a href="https://www.docker.com/">Docker</a></sub>
+  <br>
+  <sub></sub>
+</td>
+
 <td align='center'>
   <img width='36' height='36' src='https://img.stackshare.io/service/1046/git.png' alt='Git'>
   <br>
@@ -78,6 +100,15 @@ Full tech stack [here](/techstack.md)
 </table>
 
 ## Other (2)
+<table><tr>
+  <td align='center'>
+  <img width='36' height='36' src='https://img.stackshare.io/service/6429/alpine_linux.png' alt='Alpine Linux'>
+  <br>
+  <sub><a href="https://www.alpinelinux.org/">Alpine Linux</a></sub>
+  <br>
+  <sub>v3.18.0</sub>
+</td>
+
 <td align='center'>
   <img width='36' height='36' src='https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png' alt='Shell'>
   <br>
