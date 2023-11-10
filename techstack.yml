@@ -1,11 +1,10 @@
 repo_name: freiheit/discord_feedbot
-report_id: 9c7efdf50bb502cba17354811bb59c9a
 repo_type: Public
 timestamp: '2023-11-10T00:17:19+00:00'
 requested_by: freiheit
 provider: github
 branch: main
-detected_tools_count: 8
+detected_tools_count: 5
 tools:
 - name: Python
   description: A clear and powerful object-oriented programming language, comparable
@@ -16,27 +15,6 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/993/pUBY5pVj.png
-  detection_source: Repo Metadata
-- name: MySQL
-  description: The world's most popular open source database
-  website_url: http://www.mysql.com
-  open_source: true
-  hosted_saas: false
-  category: Data Stores
-  sub_category: Databases
-  image_url: https://img.stackshare.io/service/1025/logo-mysql-170x170.png
-  detection_source: requirements.txt
-  last_updated_by: renovate[bot]
-  last_updated_on: 2023-06-26 06:32:45.000000000 Z
-- name: Docker
-  description: Enterprise Container Platform for High-Velocity Innovation.
-  website_url: https://www.docker.com/
-  license: Apache-2.0
-  open_source: true
-  hosted_saas: false
-  category: Build, Test, Deploy
-  sub_category: Virtual Machine Platforms & Containers
-  image_url: https://img.stackshare.io/service/586/n4u37v9t_400x400.png
   detection_source: Repo Metadata
 - name: Git
   description: Fast, scalable, distributed revision control system
@@ -70,20 +48,6 @@ tools:
   detection_source: requirements.txt
   last_updated_by: Eric Eisenhart
   last_updated_on: 2022-05-02 16:49:03.000000000 Z
-- name: Alpine Linux
-  description: Security-oriented, lightweight Linux distribution based on musl libc
-    and busybox
-  website_url: https://www.alpinelinux.org/
-  version: 3.18.0
-  open_source: false
-  hosted_saas: false
-  category: Languages & Frameworks
-  sub_category: Operating Systems
-  image_url: https://img.stackshare.io/service/6429/alpine_linux.png
-  detection_source_url: Dockerfile
-  detection_source: Dockerfile
-  last_updated_by: renovate[bot]
-  last_updated_on: 2023-05-10 00:40:25.000000000 Z
 - name: Shell
   description: A shell is a text-based terminal, used for manipulating programs and
     files. Shell scripts typically manage program execution.
