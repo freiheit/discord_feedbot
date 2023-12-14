@@ -1,11 +1,11 @@
 repo_name: freiheit/discord_feedbot
-report_id: 34720a80c8c6f623a6647ce3df3743c4
+report_id: 631f6e8cc80c296c774efa66c52fb376
 repo_type: Public
-timestamp: '2023-11-10T00:58:50+00:00'
+timestamp: '2023-12-14T10:03:54+00:00'
 requested_by: renovate[bot]
 provider: github
 branch: main
-detected_tools_count: 8
+detected_tools_count: 25
 tools:
 - name: Python
   description: A clear and powerful object-oriented programming language, comparable
@@ -28,6 +28,17 @@ tools:
   detection_source: requirements.txt
   last_updated_by: renovate[bot]
   last_updated_on: 2023-06-26 06:32:45.000000000 Z
+- name: pgvector
+  description: Open-source vector similarity search for Postgres
+  website_url: https://github.com/pgvector/pgvector/
+  open_source: false
+  hosted_saas: false
+  category: Data Stores
+  sub_category: Database Tools
+  image_url: https://img.stackshare.io/service/109221/default_b888cdf5617d936aa6aacf130911906955508639.png
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
 - name: Docker
   description: Enterprise Container Platform for High-Velocity Innovation.
   website_url: https://www.docker.com/
@@ -55,9 +66,20 @@ tools:
   category: Build, Test, Deploy
   sub_category: Continuous Integration
   image_url: https://img.stackshare.io/service/11563/actions.png
-  detection_source: ".github/workflows/stale.yml"
+  detection_source: ".github/workflows/dependency-review.yml"
   last_updated_by: renovate[bot]
   last_updated_on: 2023-11-10 00:24:46.000000000 Z
+- name: PyPI
+  description: A repository of software for the Python programming language
+  website_url: https://pypi.org/
+  open_source: false
+  hosted_saas: false
+  category: Build, Test, Deploy
+  sub_category: Hosted Package Repository
+  image_url: https://img.stackshare.io/service/12572/-RIWgodF_400x400.jpg
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
 - name: Pylint
   description: Source-code, bug and quality checker for the Python programming language
   website_url: https://www.pylint.org/
@@ -74,16 +96,27 @@ tools:
   description: Security-oriented, lightweight Linux distribution based on musl libc
     and busybox
   website_url: https://www.alpinelinux.org/
-  version: 3.18.0
+  version: 3.19.0
   open_source: false
   hosted_saas: false
   category: Languages & Frameworks
   sub_category: Operating Systems
   image_url: https://img.stackshare.io/service/6429/alpine_linux.png
-  detection_source_url: Dockerfile
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/Dockerfile
   detection_source: Dockerfile
   last_updated_by: renovate[bot]
-  last_updated_on: 2023-05-10 00:40:25.000000000 Z
+  last_updated_on: 2023-12-08 04:41:49.000000000 Z
+- name: LangChain
+  description: Build AI apps with LLMs through composability
+  website_url: https://github.com/hwchase17/langchain
+  open_source: true
+  hosted_saas: false
+  category: Communications
+  sub_category: Large Language Model Tools
+  image_url: https://img.stackshare.io/service/48790/default_5b6c6b73f1ff3775c85d2a1ba954cb87e30cbf13.jpg
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
 - name: Shell
   description: A shell is a text-based terminal, used for manipulating programs and
     files. Shell scripts typically manage program execution.
@@ -94,3 +127,267 @@ tools:
   sub_category: Languages
   image_url: https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png
   detection_source: Repo Metadata
+- name: PyMySQL
+  description: Pure Python MySQL Driver
+  package_url: https://pypi.org/project/PyMySQL
+  version: 1.1.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19880/default_3863c7bb51d307217c188e059f67ca417c51efe3.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: renovate[bot]
+  last_updated_on: 2023-06-26 06:32:45.000000000 Z
+- name: aiohttp
+  description: Async http client/server framework
+  package_url: https://pypi.org/project/aiohttp
+  version: 3.7.0
+  license: Apache-2.0
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19852/default_d748224707283d9d8a73c2323730c87bda6b313a.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+  vulnerabilities:
+  - name: aiohttp's ClientSession is vulnerable to CRLF injection via version
+    cve_id: CVE-2023-49081
+    cve_url: https://github.com/advisories/GHSA-q3qx-c6g2-7pw2
+    detected_date: Nov 28
+    severity: high
+    first_patched: 3.9.0
+  - name: aiohttp has vulnerable dependency that is vulnerable to request smuggling
+    cve_id: 
+    cve_url: https://github.com/advisories/GHSA-pjjw-qhg8-p2p9
+    detected_date: Nov 29
+    severity: moderate
+    first_patched: 3.8.6
+  - name: aiohttp's ClientSession is vulnerable to CRLF injection via method
+    cve_id: CVE-2023-49082
+    cve_url: https://github.com/advisories/GHSA-qvrw-v9rv-5rjx
+    detected_date: Nov 28
+    severity: moderate
+    first_patched: 3.9.0
+  - name: AIOHTTP has problems in HTTP parser (the python one, not llhttp)
+    cve_id: CVE-2023-47627
+    cve_url: https://github.com/advisories/GHSA-gfw2-4jvh-wgfg
+    detected_date: Nov 15
+    severity: moderate
+    first_patched: 3.8.6
+  - name: aiohttp.web.Application vulnerable to HTTP request smuggling via llhttp
+      HTTP request parser
+    cve_id: CVE-2023-37276
+    cve_url: https://github.com/advisories/GHSA-45c4-8wx5-qw6w
+    detected_date: Jul 21
+    severity: moderate
+    first_patched: 3.8.5
+  - name: 'Withdrawn: Denial of Service in aiohttp'
+    cve_id: CVE-2022-33124
+    cve_url: https://github.com/advisories/GHSA-rwqr-c348-m5wr
+    detected_date: Jun 26
+    severity: moderate
+    first_patched: 
+  - name: "`aiohttp` Open Redirect vulnerability (`normalize_path_middleware` middleware)"
+    cve_id: CVE-2021-21330
+    cve_url: https://github.com/advisories/GHSA-v6wp-4m6f-gcjg
+    detected_date: Aug 22
+    severity: low
+    first_patched: 3.7.4
+  - name: Aiohttp has inconsistent interpretation of `Content-Length` vs. `Transfer-Encoding`
+      differing in C and Python fallbacks
+    cve_id: CVE-2023-47641
+    cve_url: https://github.com/advisories/GHSA-xx9p-xxvh-7g8j
+    detected_date: Nov 15
+    severity: low
+    first_patched: 3.8.0
+- name: aiomysql
+  description: MySQL driver for asyncio
+  package_url: https://pypi.org/project/aiomysql
+  version: 0.2.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/pypi/image.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: renovate[bot]
+  last_updated_on: 2023-06-11 22:27:39.000000000 Z
+- name: aiosqlite
+  description: Asyncio bridge to the standard sqlite3 module
+  package_url: https://pypi.org/project/aiosqlite
+  version: 0.17.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/pypi/image.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+- name: discord.py
+  description: A python wrapper for the Discord API
+  package_url: https://pypi.org/project/discord.py
+  version: '1.7'
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/20460/default_9a2df92d685d6540be25228e6b33cb090554923a.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2023-04-26 07:07:51.000000000 Z
+- name: feedparser
+  description: Universal feed parser
+  package_url: https://pypi.org/project/feedparser
+  version: '6.0'
+  license: Other
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19965/default_62b2ac36bb8fe8a96b159da37fa490cc7a170082.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+- name: flake8
+  description: 'The modular source code checker: pep8, pyflakes and co'
+  package_url: https://pypi.org/project/flake8
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19920/default_c8be5290cb8d8a8b578535a2c6475d1057ff4ea4.png
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+- name: html2text
+  description: Turn HTML into equivalent Markdown-structured text
+  package_url: https://pypi.org/project/html2text
+  version: 2020.1.16
+  license: GPL-3.0
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19982/default_ccb381b493daf0d966e015380e1894fdbc637ad3.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Renovate Bot
+  last_updated_on: 2022-05-02 16:49:22.000000000 Z
+- name: python-dateutil
+  description: Extensions to the standard Python datetime module
+  package_url: https://pypi.org/project/python-dateutil
+  version: 2.8.0
+  license: NRL
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19833/default_58dbe7b4d7ec447b62773209af0f9a31bbabf5bd.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+- name: pytz
+  description: World timezone definitions, modern and historical
+  package_url: https://pypi.org/project/pytz
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19841/default_bb711fa267b2329ed689711a5adb7d9e74610b20.png
+  detection_source: requirements.txt
+  last_updated_by: renovate[bot]
+  last_updated_on: 2023-09-05 03:53:50.000000000 Z
+- name: requests
+  description: Python HTTP for Humans
+  package_url: https://pypi.org/project/requests
+  version: 2.27.1
+  license: Apache-2.0
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19826/default_d7c684bf2673f008a9f02ac93901229297a22d7e.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+  vulnerabilities:
+  - name: Unintended leak of Proxy-Authorization header in requests
+    cve_id: CVE-2023-32681
+    cve_url: https://github.com/advisories/GHSA-j8r2-6x86-q33q
+    detected_date: May 23
+    severity: moderate
+    first_patched: 2.31.0
+- name: six
+  description: Python 2 and 3 compatibility utilities
+  package_url: https://pypi.org/project/six
+  version: 1.16.0
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19827/default_74a61b43bdb9fc0cba2978316b9976f43545029b.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+- name: urllib3
+  description: HTTP library with thread-safe connection pooling
+  package_url: https://pypi.org/project/urllib3
+  version: 1.26.9
+  license: MIT
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/19842/default_4604ff5dcb7f4d9c7b3833591c2142493951b19c.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
+  vulnerabilities:
+  - name: urllib3's request body not stripped after redirect from 303 status changes
+      request method to GET
+    cve_id: CVE-2023-45803
+    cve_url: https://github.com/advisories/GHSA-g4mx-q9vg-27p4
+    detected_date: Oct 18
+    severity: moderate
+    first_patched: 1.26.18
+  - name: "`Cookie` HTTP header isn't stripped on cross-origin redirects"
+    cve_id: CVE-2023-43804
+    cve_url: https://github.com/advisories/GHSA-v845-jxx5-vc9f
+    detected_date: Oct 3
+    severity: moderate
+    first_patched: 1.26.17
+- name: ws4py
+  description: WebSocket client and server library for Python 2 and 3 as well as PyPy
+  package_url: https://pypi.org/project/ws4py
+  version: 0.5.1
+  license: BSD-3-Clause
+  open_source: true
+  hosted_saas: false
+  category: Libraries
+  sub_category: PyPI Packages
+  image_url: https://img.stackshare.io/package/20264/default_1842575018db691e6f93d8a9a1aa65cdc2a55c20.png
+  detection_source_url: https://github.com/freiheit/discord_feedbot/blob/main/requirements.txt
+  detection_source: requirements.txt
+  last_updated_by: Eric Eisenhart
+  last_updated_on: 2022-05-02 16:49:03.000000000 Z
