@@ -2,7 +2,7 @@ repo_name: freiheit/discord_feedbot
 report_id: a41c49912a5a759a6172c757470d8eb3
 version: 0.1
 repo_type: Public
-timestamp: '2024-01-05T09:04:52+00:00'
+timestamp: '2024-02-29T18:25:14+00:00'
 requested_by: renovate[bot]
 provider: github
 branch: main
@@ -173,6 +173,18 @@ tools:
     detected_date: Nov 28
     severity: high
     first_patched: 3.9.0
+  - name: aiohttp is vulnerable to directory traversal
+    cve_id: CVE-2024-23334
+    cve_url: https://github.com/advisories/GHSA-5h86-8mv2-jq9f
+    detected_date: Jan 30
+    severity: moderate
+    first_patched: 3.9.2
+  - name: AIOHTTP has problems in HTTP parser (the python one, not llhttp)
+    cve_id: CVE-2023-47627
+    cve_url: https://github.com/advisories/GHSA-gfw2-4jvh-wgfg
+    detected_date: Nov 15
+    severity: moderate
+    first_patched: 3.8.6
   - name: aiohttp has vulnerable dependency that is vulnerable to request smuggling
     cve_id: 
     cve_url: https://github.com/advisories/GHSA-pjjw-qhg8-p2p9
@@ -185,12 +197,12 @@ tools:
     detected_date: Nov 28
     severity: moderate
     first_patched: 3.9.0
-  - name: AIOHTTP has problems in HTTP parser (the python one, not llhttp)
-    cve_id: CVE-2023-47627
-    cve_url: https://github.com/advisories/GHSA-gfw2-4jvh-wgfg
-    detected_date: Nov 15
+  - name: 'Withdrawn: Denial of Service in aiohttp'
+    cve_id: CVE-2022-33124
+    cve_url: https://github.com/advisories/GHSA-rwqr-c348-m5wr
+    detected_date: Jun 26
     severity: moderate
-    first_patched: 3.8.6
+    first_patched: 
   - name: aiohttp.web.Application vulnerable to HTTP request smuggling via llhttp
       HTTP request parser
     cve_id: CVE-2023-37276
@@ -198,12 +210,13 @@ tools:
     detected_date: Jul 21
     severity: moderate
     first_patched: 3.8.5
-  - name: 'Withdrawn: Denial of Service in aiohttp'
-    cve_id: CVE-2022-33124
-    cve_url: https://github.com/advisories/GHSA-rwqr-c348-m5wr
-    detected_date: Jun 26
+  - name: aiohttp's HTTP parser (the python one, not llhttp) still overly lenient
+      about separators
+    cve_id: CVE-2024-23829
+    cve_url: https://github.com/advisories/GHSA-8qpw-xqxj-h4r2
+    detected_date: Jan 30
     severity: moderate
-    first_patched: 
+    first_patched: 3.9.2
   - name: "`aiohttp` Open Redirect vulnerability (`normalize_path_middleware` middleware)"
     cve_id: CVE-2021-21330
     cve_url: https://github.com/advisories/GHSA-v6wp-4m6f-gcjg
