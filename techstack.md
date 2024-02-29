@@ -5,13 +5,13 @@ freiheit/discord_feedbot is built on the following main stack:
 
 - [Python](https://www.python.org) – Languages
 - [MySQL](http://www.mysql.com) – Databases
-- [Shell](https://en.wikipedia.org/wiki/Shell_script) – Shells
-- [Pylint](https://www.pylint.org/) – Code Review
-- [Alpine Linux](https://www.alpinelinux.org/) – Operating Systems
-- [GitHub Actions](https://github.com/features/actions) – Continuous Integration
-- [LangChain](https://github.com/hwchase17/langchain) – Large Language Model Tools
 - [pgvector](https://github.com/pgvector/pgvector/) – Database Tools
 - [Docker](https://www.docker.com/) – Virtual Machine Platforms & Containers
+- [GitHub Actions](https://github.com/features/actions) – Continuous Integration
+- [Pylint](https://www.pylint.org/) – Code Review
+- [Alpine Linux](https://www.alpinelinux.org/) – Operating Systems
+- [LangChain](https://github.com/hwchase17/langchain) – Large Language Model Tools
+- [Shell](https://en.wikipedia.org/wiki/Shell_script) – Shells
 
 Full tech stack [here](/techstack.md)
 
@@ -23,13 +23,13 @@ freiheit/discord_feedbot is built on the following main stack:
 
 - <img width='25' height='25' src='https://img.stackshare.io/service/993/pUBY5pVj.png' alt='Python'/> [Python](https://www.python.org) – Languages
 - <img width='25' height='25' src='https://img.stackshare.io/service/1025/logo-mysql-170x170.png' alt='MySQL'/> [MySQL](http://www.mysql.com) – Databases
-- <img width='25' height='25' src='https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png' alt='Shell'/> [Shell](https://en.wikipedia.org/wiki/Shell_script) – Shells
-- <img width='25' height='25' src='https://img.stackshare.io/service/4837/py.jpg' alt='Pylint'/> [Pylint](https://www.pylint.org/) – Code Review
-- <img width='25' height='25' src='https://img.stackshare.io/service/6429/alpine_linux.png' alt='Alpine Linux'/> [Alpine Linux](https://www.alpinelinux.org/) – Operating Systems
-- <img width='25' height='25' src='https://img.stackshare.io/service/11563/actions.png' alt='GitHub Actions'/> [GitHub Actions](https://github.com/features/actions) – Continuous Integration
-- <img width='25' height='25' src='https://img.stackshare.io/service/48790/default_5b6c6b73f1ff3775c85d2a1ba954cb87e30cbf13.jpg' alt='LangChain'/> [LangChain](https://github.com/hwchase17/langchain) – Large Language Model Tools
 - <img width='25' height='25' src='https://img.stackshare.io/service/109221/default_b888cdf5617d936aa6aacf130911906955508639.png' alt='pgvector'/> [pgvector](https://github.com/pgvector/pgvector/) – Database Tools
 - <img width='25' height='25' src='https://img.stackshare.io/service/586/n4u37v9t_400x400.png' alt='Docker'/> [Docker](https://www.docker.com/) – Virtual Machine Platforms & Containers
+- <img width='25' height='25' src='https://img.stackshare.io/service/11563/actions.png' alt='GitHub Actions'/> [GitHub Actions](https://github.com/features/actions) – Continuous Integration
+- <img width='25' height='25' src='https://img.stackshare.io/service/4837/py.jpg' alt='Pylint'/> [Pylint](https://www.pylint.org/) – Code Review
+- <img width='25' height='25' src='https://img.stackshare.io/service/6429/alpine_linux.png' alt='Alpine Linux'/> [Alpine Linux](https://www.alpinelinux.org/) – Operating Systems
+- <img width='25' height='25' src='https://img.stackshare.io/service/48790/default_5b6c6b73f1ff3775c85d2a1ba954cb87e30cbf13.jpg' alt='LangChain'/> [LangChain](https://github.com/hwchase17/langchain) – Large Language Model Tools
+- <img width='25' height='25' src='https://img.stackshare.io/service/4631/default_c2062d40130562bdc836c13dbca02d318205a962.png' alt='Shell'/> [Shell](https://en.wikipedia.org/wiki/Shell_script) – Shells
 
 Full tech stack [here](/techstack.md)
 
@@ -40,7 +40,7 @@ Full tech stack [here](/techstack.md)
 # Tech Stack File
 ![](https://img.stackshare.io/repo.svg "repo") [freiheit/discord_feedbot](https://github.com/freiheit/discord_feedbot)![](https://img.stackshare.io/public_badge.svg "public")
 <br/><br/>
-|25<br/>Tools used|01/05/24 <br/>Report generated|
+|25<br/>Tools used|02/29/24 <br/>Report generated|
 |------|------|
 </div>
 
@@ -160,7 +160,7 @@ Full tech stack [here](/techstack.md)
 |NAME|VERSION|LAST UPDATED|LAST UPDATED BY|LICENSE|VULNERABILITIES|
 |:------|:------|:------|:------|:------|:------|
 |[PyMySQL](https://pypi.org/project/PyMySQL)|v1.1.0|06/26/23|renovate[bot] |MIT|N/A|
-|[aiohttp](https://pypi.org/project/aiohttp)|v3.7.0|05/02/22|Eric Eisenhart |Apache-2.0|[CVE-2023-49081](https://github.com/advisories/GHSA-q3qx-c6g2-7pw2) (High)<br/>[](https://github.com/advisories/GHSA-pjjw-qhg8-p2p9) (Moderate)<br/>[CVE-2023-49082](https://github.com/advisories/GHSA-qvrw-v9rv-5rjx) (Moderate)<br/>[CVE-2023-47627](https://github.com/advisories/GHSA-gfw2-4jvh-wgfg) (Moderate)<br/>[CVE-2023-37276](https://github.com/advisories/GHSA-45c4-8wx5-qw6w) (Moderate)<br/>[CVE-2022-33124](https://github.com/advisories/GHSA-rwqr-c348-m5wr) (Moderate)<br/>[CVE-2021-21330](https://github.com/advisories/GHSA-v6wp-4m6f-gcjg) (Low)<br/>[CVE-2023-47641](https://github.com/advisories/GHSA-xx9p-xxvh-7g8j) (Low)|
+|[aiohttp](https://pypi.org/project/aiohttp)|v3.7.0|05/02/22|Eric Eisenhart |Apache-2.0|[CVE-2023-49081](https://github.com/advisories/GHSA-q3qx-c6g2-7pw2) (High)<br/>[CVE-2024-23334](https://github.com/advisories/GHSA-5h86-8mv2-jq9f) (Moderate)<br/>[CVE-2023-47627](https://github.com/advisories/GHSA-gfw2-4jvh-wgfg) (Moderate)<br/>[](https://github.com/advisories/GHSA-pjjw-qhg8-p2p9) (Moderate)<br/>[CVE-2023-49082](https://github.com/advisories/GHSA-qvrw-v9rv-5rjx) (Moderate)<br/>[CVE-2022-33124](https://github.com/advisories/GHSA-rwqr-c348-m5wr) (Moderate)<br/>[CVE-2023-37276](https://github.com/advisories/GHSA-45c4-8wx5-qw6w) (Moderate)<br/>[CVE-2024-23829](https://github.com/advisories/GHSA-8qpw-xqxj-h4r2) (Moderate)<br/>[CVE-2021-21330](https://github.com/advisories/GHSA-v6wp-4m6f-gcjg) (Low)<br/>[CVE-2023-47641](https://github.com/advisories/GHSA-xx9p-xxvh-7g8j) (Low)|
 |[aiomysql](https://pypi.org/project/aiomysql)|v0.2.0|06/11/23|renovate[bot] |MIT|N/A|
 |[aiosqlite](https://pypi.org/project/aiosqlite)|v0.17.0|05/02/22|Eric Eisenhart |MIT|N/A|
 |[discord.py](https://pypi.org/project/discord.py)|v1.7|04/26/23|Eric Eisenhart |MIT|N/A|
