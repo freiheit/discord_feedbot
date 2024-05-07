@@ -208,13 +208,14 @@ TIMEZONE = get_timezone(config)
 # pythons:
 # feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
-
+intents = discord.Intents(messages=True)
 # global discord client object
 # Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
 client = discord.Client(
     chunk_guilds_at_startup=False,
     member_cache_flags=discord.MemberCacheFlags.none(),
-    max_messages=None
+    max_messages=None,
+    intents=intents
 )
 
 
@@ -623,6 +624,10 @@ async def background_check_feed(feed, asyncioloop):
             # pull data out of the http response
             logger.info(feed + ":reading http response")
             http_data = await http_response.read()
+            ##fuck you acast
+            http_data = str(http_data)
+            http_data = http_data.replace("podaccess:item", "item")
+
 
             # Apparently we need to sleep before closing an SSL connection?
             # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
@@ -909,33 +914,44 @@ async def on_ready():
             avatar = f.read()
         await client.edit_profile(avatar=avatar)
 
+async def setup_hook():
+    # create the background task and run it in the background
+    bg_task = loop.create_task(my_background_task())
 
 # Set up the tasks for each feed and start the main event loop thing.
-# In this __main__ thing so can be used as library.
-def main():
-    loop = asyncio.get_event_loop()
+class MyClient(discord.Client):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    feeds = get_feeds_config(config)
-    sql_maintenance(config)
+    async def setup_hook(self) -> None:
+        # create the background task and run it in the background
+        self.bg_task = self.loop.create_task(self.my_background_task())
 
-    try:
-        loop.create_task(on_ready())
-        for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
-        if "login_token" in MAIN:
-            loop.run_until_complete(client.login(MAIN.get("login_token")))
-        else:
-            loop.run_until_complete(
-                client.login(
-                    MAIN.get("login_email"),
-                    MAIN.get("login_password"))
-            )
-        loop.run_until_complete(client.connect())
-    except Exception:
-        loop.run_until_complete(client.close())
-    finally:
-        loop.close()
+    async def on_ready(self):
+        print(f'Logged in as {self.user} (ID: {self.user.id})')
+        print('------')
 
+        # set avatar if specified
+        avatar_file_name = MAIN.get("avatarfile")
+        if avatar_file_name:
+            with open(avatar_file_name, "rb") as f:
+                avatar = f.read()
+            await client.edit_profile(avatar=avatar)
+
+    async def my_background_task(self):
+        await self.wait_until_ready()
+        loop = asyncio.get_event_loop()
+        feeds = get_feeds_config(config)
+        sql_maintenance(config)
+        try:
+            loop.create_task(on_ready())
+            for feed in feeds:
+                loop.create_task(background_check_feed(feed, loop))
+        except Exception:
+            loop.run_until_complete(client.close())
+        finally:
+            loop.close()
 
 if __name__ == "__main__":
-    main()
+    client = MyClient(intents=discord.Intents.default())
+    client.run(MAIN.get("login_token"))
