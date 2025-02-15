@@ -1,9 +1,13 @@
 {
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
-  "labels": ["dependencies"],
-  "assignees": ["freiheit@gmail.com"],
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [
+    "freiheit@gmail.com"
+  ],
   "dependencyDashboardAutoclose": true,
   "timezone": "America/Los_Angeles",
   "schedule": [
@@ -15,7 +19,12 @@
   },
   "packageRules": [
     {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "automerge": true
     }
   ]
