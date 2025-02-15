@@ -13,6 +13,7 @@ import aiomysql
 import sys
 import time
 import warnings
+import html
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
@@ -286,7 +287,7 @@ async def process_field(field, item, FEED, channel):
                 url = urljoin(FEED.get("feed-url"), item[field])
                 return begin + url + end
             else:
-                return begin + item[field] + end
+                return begin + html.unescape(item[field]) + end
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
@@ -297,7 +298,7 @@ async def process_field(field, item, FEED, channel):
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
         if field in item:
-            return "```\n%s\n```" % (item[field])
+            return "```\n%s\n```" % (html.unescape(item[field]))
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
@@ -309,7 +310,7 @@ async def process_field(field, item, FEED, channel):
         # separately:
         field = codematch.group(1)
         if field in item:
-            return "`%s`" % (item[field])
+            return "`%s`" % (html.unescape(item[field]))
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
@@ -363,7 +364,7 @@ async def process_field(field, item, FEED, channel):
                 htmlfixer.unicode_snob = True
                 htmlfixer.ul_item_mark = "-"  # Default of "*" likely
                 # to bold things, etc...
-                markdownfield = htmlfixer.handle(item[field])
+                markdownfield = htmlfixer.handle(html.unescape(item[field]))
 
                 # Try to strip any remaining HTML out.  Not "safe", but
                 # simple and should catch most stuff:
