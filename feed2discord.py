@@ -34,8 +34,8 @@ from html2text import HTML2Text
 __version__ = "3.2.0"
 
 
-PROG_NAME = "feedbot"
-USER_AGENT = "%s/%s" % (PROG_NAME, __version__)
+PROG_NAME = "linux:github.com/freiheit/discord_feedbot"
+USER_AGENT = "%s:%s (by /u/freiheit)" % (PROG_NAME, __version__)
 
 SQL_CREATE_FEED_INFO_TBL = """
 CREATE TABLE IF NOT EXISTS feed_info (
@@ -212,10 +212,12 @@ TIMEZONE = get_timezone(config)
 
 # global discord client object
 # Disable as much caching as we can, since we don't pay attention to users, members, messages, etc
+intents = discord.Intents.default()
 client = discord.Client(
     chunk_guilds_at_startup=False,
     member_cache_flags=discord.MemberCacheFlags.none(),
-    max_messages=None
+    max_messages=None,
+    intents=intents,
 )
 
 
@@ -466,6 +468,7 @@ async def background_check_feed(feed, asyncioloop):
     logger.info(feed + ": Starting up background_check_feed")
 
     # Try to wait until Discord client has connected, etc:
+    await asyncio.sleep(5)
     await client.wait_until_ready()
     # make sure debug output has this check run in the right order...
     await asyncio.sleep(1)
@@ -902,6 +905,8 @@ async def background_check_feed(feed, asyncioloop):
 # @client.async_event
 async def on_ready():
     logger.info("Logged in")
+
+    await asyncio.sleep(3)
 
     # set avatar if specified
     avatar_file_name = MAIN.get("avatarfile")
