@@ -12,7 +12,10 @@ if len(sys.argv) == 2:
 else:
     feed_url = input("Feed URL: ")
 
-feeds = search(feed_url)
+feeds = search(
+    url=feed_url,
+    user_agent="linux:github.com/freiheit/discord_feedbot:feedsearch.py (by /u/freiheit)"
+)
 
 # Get terminal width
 term_size = shutil.get_terminal_size(fallback=(80, 24))

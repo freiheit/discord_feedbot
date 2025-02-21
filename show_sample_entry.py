@@ -8,7 +8,7 @@ import sys
 import feedparser
 
 # feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
-
+feedparser.USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
 
 # 0 is command itself:
 if len(sys.argv) == 2:

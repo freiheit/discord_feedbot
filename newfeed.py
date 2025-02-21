@@ -15,6 +15,8 @@ import readline
 import shutil
 import sys
 
+feedparser.USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
+
 from configparser import ConfigParser
 
 # Get login_token from config:
