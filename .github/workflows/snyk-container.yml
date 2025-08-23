@@ -39,7 +39,7 @@ jobs:
       # Snyk can be used to break the build when it detects vulnerabilities.
       # In this case we want to upload the issues to GitHub Code Scanning
       continue-on-error: true
-      uses: snyk/actions/docker@ae57bdf611f027808b07a5dc3baa99fb34e69854
+      uses: snyk/actions/docker@2f3c869154a3036de8e53db79251b67d10cfb91f
       env:
         # In order to use the Snyk Action you will need to have a Snyk API token.
         # More details in https://github.com/snyk/actions#getting-your-snyk-token
