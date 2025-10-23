@@ -1,6 +1,6 @@
 aiohttp>=3.7.0<=4
 aiosqlite>=0.17.0<=1
-aiomysql==0.3.0
+aiomysql==0.3.2
 discord.py>=1.7<=2.0
 feedparser>=6.0<=7
 flake8
