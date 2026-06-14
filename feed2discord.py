@@ -9,7 +9,6 @@ import os
 import random
 import re
 import sqlite3
-import aiomysql
 import sys
 import time
 import warnings
@@ -225,7 +224,7 @@ async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
     # a feed, and extracts the "best" one.  Falls back to "now" if nothing
     # is found.
-    fields = ("published", "pubDate", "date", "created", "updated")
+    fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
         if date_field in item and len(item[date_field]) > 0:
             try:
@@ -689,15 +688,15 @@ async def background_check_feed(feed, asyncioloop):
                 pubdate = await extract_best_item_date(item, TIMEZONE)
                 pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
 
-                logger.info(
+                logger.debug(
                     "%s:item:processing this entry:%s:%s",
                     feed,
                     itemid,
                     pubdate_fmt,
                 )
 
-                logger.info(feed + ":item:itemid:" + itemid)
-                logger.info(
+                logger.debug(feed + ":item:itemid:" + itemid)
+                logger.debug(
                     feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
@@ -855,7 +854,7 @@ async def background_check_feed(feed, asyncioloop):
                         logger.debug(item)
                 # seen before, move on:
                 else:
-                    logger.info(
+                    logger.debug(
                         feed + ":item:" + itemid + " seen before, skipping")
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
