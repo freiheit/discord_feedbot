@@ -9,7 +9,9 @@ import logging
 import os
 import random
 import re
+import socket
 import sqlite3
+import struct
 import sys
 import time
 import warnings
@@ -129,6 +131,59 @@ DEFAULT_AUTH_CONFIG_PATHS = [
 ]
 
 
+class _JournalHandler(logging.Handler):
+    """Write log records directly to the systemd journal socket.
+
+    Setting SYSLOG_IDENTIFIER per-message makes journald show the bot name
+    instead of 'python3', regardless of how the process was started.
+    Falls back gracefully — check `.available` before adding to a logger.
+    """
+
+    _SOCKET_PATH = "/run/systemd/journal/socket"
+    _PRIORITY = {
+        logging.CRITICAL: 2,
+        logging.ERROR: 3,
+        logging.WARNING: 4,
+        logging.INFO: 6,
+        logging.DEBUG: 7,
+    }
+
+    def __init__(self, identifier, level=logging.NOTSET):
+        super().__init__(level)
+        self.identifier = identifier
+        self.available = False
+        self._sock = None
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            s.connect(self._SOCKET_PATH)
+            self._sock = s
+            self.available = True
+        except OSError:
+            pass
+
+    def emit(self, record):
+        try:
+            priority = self._PRIORITY.get(record.levelno, 7)
+            msg = self.format(record).encode("utf-8", "replace")
+            # Always use binary framing for MESSAGE so embedded newlines
+            # (e.g. tracebacks) don't corrupt the journal record format.
+            data = (
+                b"PRIORITY="
+                + str(priority).encode()
+                + b"\n"
+                + b"SYSLOG_IDENTIFIER="
+                + self.identifier.encode()
+                + b"\n"
+                + b"MESSAGE\n"
+                + struct.pack("<Q", len(msg))
+                + msg
+                + b"\n"
+            )
+            self._sock.send(data)
+        except Exception:
+            self.handleError(record)
+
+
 def parse_args():
     version = "%(prog)s {}".format(__version__)
     p = ArgumentParser(prog=PROG_NAME)
@@ -180,9 +235,24 @@ def get_config():
     else:
         log_level = logging.ERROR
 
-    logging.basicConfig(level=log_level)
+    fmt = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    bot_name = os.path.splitext(os.path.basename(__file__))[0]
+    journal = _JournalHandler(bot_name, level=log_level)
+
+    root = logging.getLogger()
+    root.setLevel(log_level)
+    root.handlers.clear()
+
+    if journal.available:
+        journal.setFormatter(fmt)
+        root.addHandler(journal)
+    else:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(log_level)
+        handler.setFormatter(fmt)
+        root.addHandler(handler)
+
     logger = logging.getLogger(__name__)
-    logger.setLevel(log_level)
     warnings.resetwarnings()
 
     return config, logger
