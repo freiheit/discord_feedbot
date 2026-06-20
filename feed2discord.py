@@ -24,7 +24,7 @@ from pprint import pformat
 
 import aiohttp
 import discord
-import feedparser
+import feedparser_rs as feedparser  # Rust parser: faster + supports JSON Feed
 
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
@@ -246,7 +246,7 @@ async def extract_best_item_date(item, tzinfo):
     # compare all times in UTC).  Falls back to "now" if nothing is found.
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
-        if date_field in item and len(item[date_field]) > 0:
+        if item.get(date_field) and len(item[date_field]) > 0:
             # Prefer feedparser's pre-parsed struct_time: it resolves named
             # zones (EST/EDT/PST/...) that dateutil can't, and is already UTC.
             parsed = item.get(date_field + "_parsed")
@@ -306,7 +306,7 @@ async def process_field(field, item, FEED, channel):
 
     item_url_base = FEED.get("item_url_base", None)
     if field == "guid" and item_url_base is not None:
-        if "guid" in item:
+        if item.get("guid") is not None:
             return item_url_base + item["guid"]
         else:
             logger.error(
@@ -333,7 +333,7 @@ async def process_field(field, item, FEED, channel):
         # If there's any markdown on the field, return field with that
         # markup on it:
         begin, field, end = highlightmatch.groups()
-        if field in item:
+        if item.get(field) is not None:
             if field == "link":
                 url = urljoin(FEED.get("feed-url"), item[field])
                 return begin + url + end
@@ -348,7 +348,7 @@ async def process_field(field, item, FEED, channel):
 
         # Code blocks are a bit different, with a newline and stuff:
         field = bigcodematch.group(1)
-        if field in item:
+        if item.get(field) is not None:
             return "```\n%s\n```" % (html.unescape(item[field]))
         else:
             logger.error("process_field:%s:no such field", field)
@@ -360,7 +360,7 @@ async def process_field(field, item, FEED, channel):
         # Since code chunk can't have other highlights, also do them
         # separately:
         field = codematch.group(1)
-        if field in item:
+        if item.get(field) is not None:
             return "`%s`" % (html.unescape(item[field]))
         else:
             logger.error("process_field:%s:no such field", field)
@@ -369,7 +369,7 @@ async def process_field(field, item, FEED, channel):
     elif tagmatch is not None:
         logger.info("%s:process_field:%s:isTag", FEED, field)
         field = tagmatch.group(1)
-        if field in item:
+        if item.get(field) is not None:
             # Assuming tags are ', ' separated
             taglist = item[field].split(", ")
             # Iterate through channel roles, see if a role is mentionable and
@@ -389,7 +389,7 @@ async def process_field(field, item, FEED, channel):
         delim = dictmatch.group(1)
         field = dictmatch.group(2)
         dictkey = dictmatch.group(3)
-        if field in item:
+        if item.get(field) is not None:
             return delim.join([x[dictkey] for x in item[field]])
         else:
             logger.error("process_field:%s:no such field", field)
@@ -398,7 +398,7 @@ async def process_field(field, item, FEED, channel):
     else:
         logger.info("%s:process_field:%s:isPlain", FEED, field)
         # Just asking for plain field:
-        if field in item:
+        if item.get(field) is not None:
             # If field is special field "link",
             # then use urljoin to turn relative URLs into absolute URLs
             if field == "link":
@@ -745,11 +745,11 @@ async def background_check_feed(feed, asyncioloop):
 
                 # Pull out the unique id, or just give up on this item.
                 itemid = ""
-                if "id" in item:
+                if item.get("id"):
                     itemid = item.id
-                elif "guid" in item:
+                elif item.get("guid"):
                     itemid = item.guid
-                elif "link" in item:
+                elif item.get("link"):
                     itemid = item.link
                 else:
                     logger.error(feed + ":item:no itemid, skipping")

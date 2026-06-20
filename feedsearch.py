@@ -23,13 +23,12 @@ feed found here is one feed2discord can actually fetch too.
 
 Usage: feedsearch.py [URL]   (prompts for the URL if not given)
 """
-import json
 import re
 import sys
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
-import feedparser
+import feedparser_rs as feedparser  # Rust parser: faster + native JSON Feed
 import requests
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:feedsearch.py (by /u/freiheit)"
@@ -63,27 +62,17 @@ def fetch(url):
 def feed_info(content):
     """If content parses as a real feed return (title, version, n_entries).
 
-    Covers every format feedparser understands (RSS 0.9x/1.0/2.0, RDF, Atom,
-    CDF, ...) plus JSON Feed, which feedparser does NOT support, so we detect
-    that one ourselves.
+    feedparser-rs covers every format we care about -- RSS 0.9x/1.0/2.0, RDF,
+    Atom, CDF, and JSON Feed (reported as 'json10').
     """
     parsed = feedparser.parse(content)
-    if parsed.version:  # a feedparser-recognized XML feed
-        # Accept a feed with entries even if slightly malformed; for an empty
-        # feed insist it parsed cleanly, so we don't mistake HTML for a feed.
-        if len(parsed.entries) == 0 and parsed.bozo:
-            return None
-        return (parsed.feed.get("title", "(untitled)"), parsed.version, len(parsed.entries))
-    # JSON Feed (https://jsonfeed.org) -- feedparser can't parse it.
-    if content.lstrip(b"\xef\xbb\xbf").lstrip()[:1] == b"{":
-        try:
-            data = json.loads(content)
-        except (ValueError, TypeError):
-            return None
-        version = data.get("version", "") if isinstance(data, dict) else ""
-        if isinstance(version, str) and "jsonfeed.org" in version:
-            return (data.get("title", "(untitled)"), "json", len(data.get("items", [])))
-    return None
+    if not parsed.version:  # not a recognized feed format at all
+        return None
+    # Accept a feed with entries even if slightly malformed; for an empty feed
+    # insist it parsed cleanly, so we don't mistake an HTML page for a feed.
+    if len(parsed.entries) == 0 and parsed.bozo:
+        return None
+    return (parsed.feed.get("title", "(untitled)"), parsed.version, len(parsed.entries))
 
 
 def _looks_like_feed(content):
@@ -356,8 +345,7 @@ def main():
     for feed_url, title, version, n_entries in feeds:
         print("  %s" % feed_url)
         print("      title: %s" % title)
-        note = "  (JSON Feed -- feed2discord/feedparser cannot consume this)" if version == "json" else ""
-        print("      type: %s, entries: %d%s" % (version, n_entries, note))
+        print("      type: %s, entries: %d" % (version, n_entries))
 
 
 if __name__ == "__main__":
