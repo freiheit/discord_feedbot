@@ -6,18 +6,26 @@
 # See README.md for instructions on setup and usage
 
 import discord
-import feedparser
+import feedparser_rs as feedparser  # Rust parser: matches feed2discord
 import in_place
 import os
 import re
 import pprint
-import readline
+import readline  # noqa: F401 -- imported for its side effect: input() line editing
+import requests
 import shutil
 import sys
-
-feedparser.USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
-
 from configparser import ConfigParser
+
+USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
+# Fetch like feed2discord (real UA, gzip/deflate -- no brotli); feedparser_rs
+# parses content, not URLs.
+HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
+
+
+def fetch_feed(url):
+    resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
+    return feedparser.parse(resp.content)
 
 # Get login_token from config:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -61,19 +69,18 @@ if len(sys.argv) == 2:
 else:
     feed_url = input("Feed URL: ")
 
-feed_data = feedparser.parse(feed_url)
-if feed_data is not None and feed_data and feed_data.entries is not None and len(feed_data.entries) >= 1:
+feed_data = fetch_feed(feed_url)
+if feed_data.entries:
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=columns)
     print("Latest feed item to help you figure out fields")
     print("----------")
-    pp.pprint(feed_data.entries[0])
+    pp.pprint(dict(feed_data.entries[0]))
     print("----------")
     print("Recommend: try posting links in a room somewhere to see if discord gives a nice preview")
     print("----------")
 else:
-    pp = pprint.PrettyPrinter(indent=4, depth=2, width=columns)
     print("No entries in feed? Are you sure that URL is good?")
-    pp.pprint(feed_data)
+    print("(version=%r bozo=%r)" % (feed_data.version, feed_data.bozo))
 print()
 print("Example (if discord has nice link preview): link")
 print("Example (super-typical): **title**,*published*,<link>,summary")

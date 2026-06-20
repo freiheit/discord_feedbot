@@ -5,22 +5,32 @@
 
 import pprint
 import sys
-import feedparser
 
-# feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
-feedparser.USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
+import feedparser_rs as feedparser  # Rust parser: matches feed2discord
+import requests
+
+USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
+# Fetch the same way feed2discord does (real UA, gzip/deflate -- no brotli, which
+# some servers emit undecodably).  feedparser_rs.parse() takes content, not a URL.
+HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
+
+
+def fetch_feed(url):
+    resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
+    return feedparser.parse(resp.content)
+
 
 # 0 is command itself:
 if len(sys.argv) == 2:
-    feed_url = sys.argv[1]
-    feed_data = feedparser.parse(feed_url)
+    feed_data = fetch_feed(sys.argv[1])
+    if not feed_data.entries:
+        print("No entries in feed -- is that URL a working feed?")
+        print("(version=%r bozo=%r)" % (feed_data.version, feed_data.bozo))
+        sys.exit(1)
     pp = pprint.PrettyPrinter(indent=4, depth=3)
-    print("# We currently restrict this output to depth=1,")
-    print("# because that's all the bot can currently handle.")
-    print(
-        "# So, ignore those `[...]` and `{...}` structures and only look at 'strings'."
-    )
-    pp.pprint(feed_data.entries[0])
+    print("# Fields available for the `fields = ...` config line.")
+    print("# Use the top-level string fields; ignore the [...]/{...} structures.")
+    pp.pprint(dict(feed_data.entries[0]))
 else:
     print(
         "Give me 1 feed URL on the command-line, and I'll give the first entry from it."
