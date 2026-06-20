@@ -657,18 +657,26 @@ async def background_check_feed(feed, asyncioloop):
             feed_data = feedparser.parse(http_data)
             logger.info(feed + ":done fetching")
 
-            # Surface parse problems that would otherwise be invisible: a 200
-            # response that yields no entries almost always means the body was
-            # malformed or undecodable (e.g. a compression we couldn't handle),
-            # which is exactly how a feed can silently go quiet.
+            # Surface parse problems that would otherwise be invisible.  Zero
+            # entries together with a parse error (bozo) or an unrecognized
+            # format usually means a malformed/undecodable body (e.g. a
+            # compression we couldn't handle) -- how a feed silently goes quiet.
+            # A well-formed feed that simply has no items right now (e.g. a
+            # security feed with no current updates) is normal -> only INFO.
             if len(feed_data.entries) == 0:
-                logger.warning(
-                    "%s:HTTP 200 but parsed 0 entries from %d bytes%s",
-                    feed,
-                    len(http_data),
-                    (" - bozo: %r" % feed_data.bozo_exception)
-                    if feed_data.bozo else "",
-                )
+                if feed_data.bozo or not feed_data.version:
+                    logger.warning(
+                        "%s:HTTP 200 but parsed 0 entries from %d bytes%s",
+                        feed,
+                        len(http_data),
+                        (" - bozo: %r" % feed_data.bozo_exception)
+                        if feed_data.bozo else "",
+                    )
+                else:
+                    logger.info(
+                        "%s:feed parsed cleanly but currently has 0 entries",
+                        feed,
+                    )
             elif feed_data.bozo:
                 logger.info(
                     "%s:parsed %d entries but feedparser set bozo: %r",
