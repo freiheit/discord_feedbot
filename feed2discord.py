@@ -347,12 +347,12 @@ async def process_field(field, item, FEED, channel):
             taglist = item[field].split(", ")
             # Iterate through channel roles, see if a role is mentionable and
             # then substitute the role for its id
-            for role in client.get_channel(channel.getint(id)).server.roles:
+            for role in channel["object"].guild.roles:
                 rn = str(role.name)
                 taglist = [
-                    "<@&%s>" %
-                    (role.id) if rn == str(i) else i for i in taglist]
-                return ", ".join(taglist)
+                    "<@&%s>" % (role.id) if rn == str(i) else i
+                    for i in taglist]
+            return ", ".join(taglist)
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
