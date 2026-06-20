@@ -977,6 +977,14 @@ async def background_check_feed(feed, asyncioloop):
                 + ":Perhaps bot isn't allowed in one of the channels for this feed?"
             )
             # raise # or not? hmm...
+        # Transient network problems -- server dropped the connection, connection
+        # refused/reset, request timed out, etc.  Like the HTTP errors above these
+        # are expected and self-heal on the next poll, so log one concise line
+        # (with the feed name) instead of a scary "unexpected error" traceback.
+        except (aiohttp.ClientError, asyncio.TimeoutError) as neterr:
+            logger.warning(
+                "%s:network error (%s); will retry later", feed, type(neterr).__name__
+            )
         # unknown error: definitely give up and die and move on
         except Exception:
             logger.exception("Unexpected error - giving up")
