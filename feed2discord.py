@@ -494,7 +494,6 @@ async def process_field(field, item, FEED, channel):
             # and turn HTML into markdown and don't add any markup:
             else:
                 htmlfixer = HTML2Text()
-                logger.info(htmlfixer)
                 htmlfixer.ignore_links = True
                 htmlfixer.ignore_images = True
                 htmlfixer.ignore_emphasis = False
@@ -698,7 +697,6 @@ async def background_check_feed(feed, asyncioloop):
                 logger.info(feed + ":feed info saved")
             else:
                 logger.info(feed + ":setting up extra headers for HTTP request.")
-                logger.info(data)
                 lastmodified = data[0]
                 etag = data[1]
                 if lastmodified is not None and len(lastmodified):
@@ -719,7 +717,7 @@ async def background_check_feed(feed, asyncioloop):
             # instance.
             http_response = await httpclient.get(feed_url, headers=http_headers)
 
-            logger.info(http_response)
+            logger.info("%s:%s", feed, http_response)
 
             # First check that we didn't get a "None" response, since that's
             # some sort of internal error thing:
