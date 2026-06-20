@@ -2,9 +2,8 @@
 [![Latest Release](https://gitlab.com/ffreiheit/discord_feedbot/-/badges/release.svg)](https://gitlab.com/ffreiheit/discord_feedbot/-/releases)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6176/badge)](https://bestpractices.coreinfrastructure.org/projects/6176)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-[![CodeQL](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/freiheit/discord_feedbot/actions/workflows/codeql-analysis.yml)
 [![Dependency Review](https://github.com/freiheit/discord_feedbot/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/freiheit/discord_feedbot/actions/workflows/dependency-review.yml)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](code_of_conduct.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CONTRIBUTING.md)
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
@@ -15,7 +14,7 @@ github.com/freiheit/discord_feedbot is a mirror and all others are forks.
 
 [[_TOC_]]
 
-Bot for taking in an RSS or Atom feed and sharing it into a Discord channel.
+Bot for taking in an RSS, Atom, or JSON feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
 
@@ -43,7 +42,7 @@ See [INSTALLING.md](INSTALLING.md)
 
 # Adding feeds
 
-See [FEEDS.md](INSTALLING.md)
+See [FEEDS.md](FEEDS.md)
 
 
 # My configuration
