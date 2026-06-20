@@ -234,7 +234,7 @@ async def extract_best_item_date(item, tzinfo):
                 date_obj = parse_datetime(item[date_field])
 
                 if date_obj.tzinfo is None:
-                    tzinfo.localize(date_obj)
+                    date_obj = tzinfo.localize(date_obj)
 
                 return date_obj
             except Exception:
