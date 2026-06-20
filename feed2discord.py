@@ -549,21 +549,6 @@ async def background_check_feed(feed, asyncioloop):
 
             logger.info(feed + ": processing feed")
 
-            # If send_typing is on for the feed, send a little "typing ..."
-            # whenever a feed is being worked on.  configurable per-room
-            if await should_send_typing(FEED, feed):
-                for channel in channels:
-                    # Since this is first attempt to talk to this channel,
-                    # be very verbose about failures to talk to channel
-                    try:
-                        await channel["object"].typing()
-                    except discord.errors.Forbidden:
-                        logger.exception(
-                            "%s:%s:forbidden - is bot allowed in channel?",
-                            feed,
-                            channel,
-                        )
-
             http_headers = {"User-Agent": user_agent}
 
             db_path = config["MAIN"].get("db_path", "feed2discord.db")
@@ -647,6 +632,20 @@ async def background_check_feed(feed, asyncioloop):
                 raise HTTPError()
             else:
                 logger.info(feed + ":HTTP success")
+
+            # send_typing is configurable per-room.  Only do it now that we
+            # know the feed actually changed (HTTP 200, not a 304/not-modified),
+            # so we don't ping "typing..." on every no-op poll.
+            if await should_send_typing(FEED, feed):
+                for channel in channels:
+                    try:
+                        await channel["object"].typing()
+                    except discord.errors.Forbidden:
+                        logger.exception(
+                            "%s:%s:forbidden - is bot allowed in channel?",
+                            feed,
+                            channel,
+                        )
 
             # pull data out of the http response
             logger.info(feed + ":reading http response")
