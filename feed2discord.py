@@ -660,6 +660,26 @@ async def background_check_feed(feed, asyncioloop):
             feed_data = feedparser.parse(http_data)
             logger.info(feed + ":done fetching")
 
+            # Surface parse problems that would otherwise be invisible: a 200
+            # response that yields no entries almost always means the body was
+            # malformed or undecodable (e.g. a compression we couldn't handle),
+            # which is exactly how a feed can silently go quiet.
+            if len(feed_data.entries) == 0:
+                logger.warning(
+                    "%s:HTTP 200 but parsed 0 entries from %d bytes%s",
+                    feed,
+                    len(http_data),
+                    (" - bozo: %r" % feed_data.bozo_exception)
+                    if feed_data.bozo else "",
+                )
+            elif feed_data.bozo:
+                logger.info(
+                    "%s:parsed %d entries but feedparser set bozo: %r",
+                    feed,
+                    len(feed_data.entries),
+                    getattr(feed_data, "bozo_exception", None),
+                )
+
             # If we got an ETAG back in headers, store that, so we can
             # include on next fetch
             if "ETAG" in http_response.headers:
