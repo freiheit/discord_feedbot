@@ -612,7 +612,6 @@ async def background_check_feed(feed, asyncioloop):
                 conn.execute(
                     "REPLACE INTO feed_info (feed,url) VALUES (?,?)", [feed, feed_url]
                 )
-                conn.commit()
                 logger.info(feed + ":feed info saved")
             else:
                 logger.info(feed + ":setting up extra headers for HTTP request.")
@@ -738,7 +737,6 @@ async def background_check_feed(feed, asyncioloop):
                     "UPDATE feed_info SET etag=? where feed=? or url=?",
                     [etag, feed, feed_url],
                 )
-                conn.commit()
                 logger.info(feed + ":etag saved")
             else:
                 logger.info(feed + ":no etag")
@@ -752,7 +750,6 @@ async def background_check_feed(feed, asyncioloop):
                     "UPDATE feed_info SET lastmodified=? where feed=? or url=?",
                     [modified, feed, feed_url],
                 )
-                conn.commit()
                 logger.info(feed + ":saved lastmodified")
             else:
                 logger.info(feed + ":no last modified date")
@@ -807,7 +804,6 @@ async def background_check_feed(feed, asyncioloop):
                         "INSERT INTO feed_items (id,published) VALUES (?,?)",
                         [itemid, pubdate_fmt],
                     )
-                    conn.commit()
 
                     # Doing some crazy date math stuff...
                     # max_age is mostly so that first run doesn't spew too
@@ -988,9 +984,15 @@ async def background_check_feed(feed, asyncioloop):
             # raise
         # No matter what goes wrong, wait same time and try again
         finally:
-            # Close the per-poll SQLite connection; otherwise it leaks until GC
-            # finalizes it ("ResourceWarning: unclosed database").
+            # One commit per poll (instead of after every write) -- far fewer
+            # fsyncs -- then close the connection (else it leaks until GC,
+            # "ResourceWarning: unclosed database").  Committing here flushes
+            # whatever this poll wrote, however the poll ended.
             if conn is not None:
+                try:
+                    conn.commit()
+                except sqlite3.Error:
+                    pass
                 conn.close()
             logger.info(feed + ":sleeping for " + str(current_refresh) + " seconds")
             await asyncio.sleep(current_refresh)
