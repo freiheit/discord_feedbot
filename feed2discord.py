@@ -911,9 +911,9 @@ async def background_check_feed(feed, asyncioloop):
         # Many feeds have random periodic problems that shouldn't cause
         # permanent death:
         except HTTPError:
-            logger.warn(feed + ":Unexpected HTTP error:")
-            logger.warn(sys.exc_info())
-            logger.warn(
+            logger.warning(feed + ":Unexpected HTTP error:")
+            logger.warning(sys.exc_info())
+            logger.warning(
                 feed + ":Assuming error is transient and trying again later")
         # sqlite3 errors are probably really bad and we should just totally
         # give up on life
