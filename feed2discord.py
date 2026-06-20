@@ -191,17 +191,8 @@ def get_feeds_config(config):
     return feeds
 
 def get_sql_connection(config):
-    db_engine = config["MAIN"].get("db_engine", "sqlite")
-    if db_engine == "sqlite":
-      conn = get_sqlite_connection(config)
-    elif db_engine == "mysql":
-      conn = get_mysql_connection(config)
-    return conn
-
-def get_sqlite_connection(config):
     db_path = config["MAIN"].get("db_path", "feed2discord.db")
-    conn = sqlite3.connect(db_path)
-    return conn
+    return sqlite3.connect(db_path)
 
 
 def sql_maintenance(config):
@@ -225,11 +216,6 @@ config, logger = get_config()
 # Make main config area global, since used everywhere/anywhere
 MAIN = config["MAIN"]
 TIMEZONE = get_timezone(config)
-
-
-# Crazy workaround for a bug with parsing that doesn't apply on all
-# pythons:
-# feedparser.PREFERRED_XML_PARSERS.remove("drv_libxml2")
 
 
 # global discord client object
@@ -1001,7 +987,6 @@ async def background_check_feed(feed, asyncioloop):
             await asyncio.sleep(current_refresh)
 
 
-# @client.async_event
 async def on_ready():
     logger.info("Logged in")
 
