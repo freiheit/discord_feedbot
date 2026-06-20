@@ -562,6 +562,7 @@ async def background_check_feed(feed, asyncioloop):
     while True:
         # And try to catch all the exceptions and just keep going
         # (but see list of except/finally stuff below)
+        conn = None
         try:
             # set current "game played" constantly so that it sticks around
             gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
@@ -979,6 +980,10 @@ async def background_check_feed(feed, asyncioloop):
             # raise
         # No matter what goes wrong, wait same time and try again
         finally:
+            # Close the per-poll SQLite connection; otherwise it leaks until GC
+            # finalizes it ("ResourceWarning: unclosed database").
+            if conn is not None:
+                conn.close()
             logger.info(feed + ":sleeping for " + str(current_refresh) + " seconds")
             await asyncio.sleep(current_refresh)
 
