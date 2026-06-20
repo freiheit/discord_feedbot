@@ -5,6 +5,7 @@
 
 import asyncio
 import calendar
+import hashlib
 import logging
 import os
 import random
@@ -81,7 +82,8 @@ CREATE TABLE IF NOT EXISTS feed_info (
     feed text PRIMARY KEY,
     url text UNIQUE,
     lastmodified text,
-    etag text
+    etag text,
+    content_hash text
 )
 """
 
@@ -680,7 +682,7 @@ async def background_check_feed(feed, asyncioloop):
 
             # pull data about history of this *feed* from DB:
             cursor = conn.execute(
-                "select lastmodified,etag from feed_info where feed=? OR url=?",
+                "select lastmodified,etag,content_hash from feed_info where feed=? OR url=?",
                 [feed, feed_url],
             )
             data = cursor.fetchone()
@@ -775,6 +777,17 @@ async def background_check_feed(feed, asyncioloop):
             logger.info(feed + ":reading http response")
             http_data = await http_response.read()
 
+            # For feeds that don't support ETag or Last-Modified, compare a
+            # hash of the raw body to detect unchanged content and skip
+            # re-parsing (equivalent to a 304 Not Modified).
+            new_hash = hashlib.sha256(http_data).hexdigest()
+            stored_hash = data[2] if data is not None else None
+            if new_hash == stored_hash:
+                logger.info("%s:content hash unchanged; skipping parse", feed)
+                current_refresh = rss_refresh_time
+                http_response.close()
+                raise HTTPNotModified()
+
             # parse the data from the http response with feedparser
             logger.info(feed + ":parsing http data")
             feed_data = feedparser.parse(http_data)
@@ -834,6 +847,11 @@ async def background_check_feed(feed, asyncioloop):
                 logger.info(feed + ":saved lastmodified")
             else:
                 logger.info(feed + ":no last modified date")
+
+            conn.execute(
+                "UPDATE feed_info SET content_hash=? WHERE feed=? OR url=?",
+                [new_hash, feed, feed_url],
+            )
 
             http_response.close()
 
