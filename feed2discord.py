@@ -533,6 +533,10 @@ async def background_check_feed(feed, asyncioloop):
         logger.info(feed + ":start_skew:sleeping for " + str(sleep_time))
         await asyncio.sleep(sleep_time)
 
+    # One HTTP session per feed task, reused across polls instead of opening
+    # (and tearing down) a fresh one on every fetch.
+    httpclient = aiohttp.ClientSession()
+
     # Basically run forever
     while True:
 
@@ -614,9 +618,6 @@ async def background_check_feed(feed, asyncioloop):
                 else:
                     logger.info(feed + ":no stored ETag")
 
-            # Set up httpclient
-            httpclient = aiohttp.ClientSession()
-
             logger.info(feed + ":sending http request for " + feed_url)
             # Send actual request.  await can yield control to another
             # instance.
@@ -652,11 +653,6 @@ async def background_check_feed(feed, asyncioloop):
             # pull data out of the http response
             logger.info(feed + ":reading http response")
             http_data = await http_response.read()
-
-            # Apparently we need to sleep before closing an SSL connection?
-            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-            await asyncio.sleep(5)
-            await httpclient.close()
 
             # parse the data from the http response with feedparser
             logger.info(feed + ":parsing http data")
