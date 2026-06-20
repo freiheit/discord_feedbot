@@ -235,6 +235,10 @@ client = discord.Client(
     intents=intents,
 )
 
+# Feed names for which we've auto-disabled typing this run because Discord
+# rate-limited the typing endpoint.  Resets on restart.
+typing_disabled = set()
+
 
 async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
@@ -267,6 +271,29 @@ async def extract_best_item_date(item, tzinfo):
 async def should_send_typing(conf, feed_name):
     global_send_typing = conf.getint("send_typing", 0)
     return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
+
+
+async def maybe_send_typing(FEED, feed, channels):
+    # Trigger a "typing..." indicator in each channel (if configured).
+    # discord.py silently sleeps+retries on a 429, so we bound the wait: if
+    # typing is being rate-limited badly, give up and stop sending typing for
+    # this feed until restart, rather than piling on more requests.
+    if feed in typing_disabled or not await should_send_typing(FEED, feed):
+        return
+    for channel in channels:
+        try:
+            await asyncio.wait_for(channel["object"].typing(), timeout=5)
+        except discord.errors.Forbidden:
+            logger.exception(
+                "%s:%s:forbidden - is bot allowed in channel?", feed, channel)
+        except (asyncio.TimeoutError, discord.errors.RateLimited):
+            typing_disabled.add(feed)
+            logger.warning(
+                "%s:typing rate-limited; disabling send_typing for this feed "
+                "until restart",
+                feed,
+            )
+            return
 
 
 # This looks at the field from the config, and returns the processed string
@@ -451,8 +478,7 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 
 async def actually_send_message(channel, message, delay, FEED, feed):
-    if await should_send_typing(FEED, feed):
-        await channel["object"].typing()
+    await maybe_send_typing(FEED, feed, [channel])
 
     logger.info(
         "%s:%s:sleeping for %i seconds before sending message",
@@ -636,16 +662,7 @@ async def background_check_feed(feed, asyncioloop):
             # send_typing is configurable per-room.  Only do it now that we
             # know the feed actually changed (HTTP 200, not a 304/not-modified),
             # so we don't ping "typing..." on every no-op poll.
-            if await should_send_typing(FEED, feed):
-                for channel in channels:
-                    try:
-                        await channel["object"].typing()
-                    except discord.errors.Forbidden:
-                        logger.exception(
-                            "%s:%s:forbidden - is bot allowed in channel?",
-                            feed,
-                            channel,
-                        )
+            await maybe_send_typing(FEED, feed, channels)
 
             # pull data out of the http response
             logger.info(feed + ":reading http response")
