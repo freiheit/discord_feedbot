@@ -55,8 +55,11 @@ CREATE TABLE IF NOT EXISTS feed_items (
 )
 """
 
+# 10 years (3650 days). Kept this long because some feeds (e.g. frontierforums)
+# bump an item's "published" date when a reply is posted; retaining the id keeps
+# such items from being treated as new and re-sent once their row is deleted.
 SQL_CLEAN_OLD_ITEMS = """
-DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 365
+DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 3650
 """
 
 
@@ -188,7 +191,7 @@ def sql_maintenance(config):
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
     conn.execute(SQL_CREATE_FEED_ITEMS_TBL)
 
-    # Clean out *some* entries that are over 1 year old...
+    # Clean out *some* entries that are over 10 years old...
     # Doing this cleanup at start time because some feeds
     # do contain very old items and we don't want to keep
     # re-evaluating them.
@@ -686,7 +689,9 @@ async def background_check_feed(feed, asyncioloop):
 
                 # Get our best date out, in both raw and parsed form
                 pubdate = await extract_best_item_date(item, TIMEZONE)
-                pubdate_fmt = pubdate.strftime("%a %b %d %H:%M:%S %Z %Y")
+                # ISO-8601 so SQLite's julianday() can parse it (used by
+                # SQL_CLEAN_OLD_ITEMS); the old ctime-style format returned NULL.
+                pubdate_fmt = pubdate.isoformat()
 
                 logger.debug(
                     "%s:item:processing this entry:%s:%s",
