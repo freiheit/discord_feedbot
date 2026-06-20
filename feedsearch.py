@@ -52,7 +52,7 @@ def fetch(url):
         return _fetch_cache[url]
     try:
         r = session.get(url, timeout=TIMEOUT, allow_redirects=True)
-        result = (r.status_code, r.url, r.content)
+        result = (r.status_code, r.url, r.content, r.headers.get("Content-Type", ""))
     except requests.RequestException:
         result = None
     _fetch_cache[url] = result
@@ -72,10 +72,22 @@ def feed_info(content):
     return (title, parsed.version, len(parsed.entries))
 
 
+def _looks_like_feed(content):
+    """Cheap check: does the body start like an XML/feed document?"""
+    head = content[:512].lstrip().lower()
+    return (head.startswith(b"<?xml") or b"<rss" in head
+            or b"<feed" in head or b"<rdf" in head)
+
+
 def validate(url):
     """Fetch url; return (final_url, title, version, n_entries) if it's a feed."""
     got = fetch(url)
     if not got or got[0] != 200:
+        return None
+    # An HTML response is essentially never a real feed; skip parsing it unless
+    # the body actually starts like XML (covers servers that mislabel feeds).
+    # This stops SPA sites that return 200 HTML for every path from being slow.
+    if "html" in got[3].lower() and not _looks_like_feed(got[2]):
         return None
     info = feed_info(got[2])
     if info is None:
