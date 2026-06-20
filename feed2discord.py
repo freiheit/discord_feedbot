@@ -575,7 +575,14 @@ async def background_check_feed(feed, asyncioloop):
 
             logger.info(feed + ": processing feed")
 
-            http_headers = {"User-Agent": user_agent}
+            # Only advertise encodings we can always decode.  aiohttp would
+            # otherwise add "br", but some servers emit a brotli stream that
+            # even brotlicffi can't decode (raising ClientPayloadError and
+            # silently killing the feed); gzip/deflate are stdlib-backed.
+            http_headers = {
+                "User-Agent": user_agent,
+                "Accept-Encoding": "gzip, deflate",
+            }
 
             db_path = config["MAIN"].get("db_path", "feed2discord.db")
 
