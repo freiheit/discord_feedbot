@@ -957,7 +957,7 @@ async def on_ready():
     if avatar_file_name:
         with open(avatar_file_name, "rb") as f:
             avatar = f.read()
-        await client.edit_profile(avatar=avatar)
+        await client.user.edit(avatar=avatar)
 
 
 # Set up the tasks for each feed and start the main event loop thing.
