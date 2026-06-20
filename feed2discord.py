@@ -951,11 +951,14 @@ async def background_check_feed(feed, asyncioloop):
             )
             logger.debug(sys.exc_info())
         # Many feeds have random periodic problems that shouldn't cause
-        # permanent death:
+        # permanent death.  The specific status was already logged above (the
+        # status / backoff line), so retry quietly -- the bare HTTPError we
+        # raise as our "non-200" signal carries no detail worth a WARNING.
+        # (Genuinely unexpected errors are caught by `except Exception` below,
+        # which logs a full traceback.)
         except HTTPError:
-            logger.warning(feed + ":Unexpected HTTP error:")
-            logger.warning(sys.exc_info())
-            logger.warning(feed + ":Assuming error is transient and trying again later")
+            logger.debug("%s:HTTP error, treating as transient; will retry later", feed)
+            logger.debug(sys.exc_info())
         # sqlite3 errors are probably really bad and we should just totally
         # give up on life
         except sqlite3.Error as sqlerr:
