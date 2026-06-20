@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!.venv/bin/python3
 # Copyright (c) 2020 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE for full details.
@@ -99,8 +99,8 @@ class MyClient(discord.Client):
 
         await self.close()
 
-
-client = MyClient()
+intents = discord.Intents.default()
+client = MyClient(intents=intents)
 client.run(login_token)
 
 room_id = client.room_id

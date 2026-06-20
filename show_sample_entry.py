@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!.venv/bin/python3
 # Copyright (c) 2016-2017 Eric Eisenhart
 # This software is released under an MIT-style license.
 # See LICENSE.md for full details.
@@ -14,7 +14,7 @@ feedparser.USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_e
 if len(sys.argv) == 2:
     feed_url = sys.argv[1]
     feed_data = feedparser.parse(feed_url)
-    pp = pprint.PrettyPrinter(indent=4, depth=1)
+    pp = pprint.PrettyPrinter(indent=4, depth=3)
     print("# We currently restrict this output to depth=1,")
     print("# because that's all the bot can currently handle.")
     print(
