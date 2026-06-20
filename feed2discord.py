@@ -49,6 +49,13 @@ TZINFOS = {
     "PST": gettz("America/Los_Angeles"), "PDT": gettz("America/Los_Angeles"),
 }
 
+# HTTP statuses that mean "you're being rate-limited / the server is overloaded":
+# 403 Forbidden, 420 Enhance Your Calm, 429 Too Many Requests, 503 Service
+# Unavailable, 508 Loop Detected, 509 Bandwidth Limit Exceeded.  When a feed
+# returns one of these we exponentially back off how often we poll it
+# (see background_check_feed).
+BACKOFF_STATUSES = {403, 420, 429, 503, 508, 509}
+
 SQL_CREATE_FEED_INFO_TBL = """
 CREATE TABLE IF NOT EXISTS feed_info (
     feed text PRIMARY KEY,
@@ -532,6 +539,8 @@ async def background_check_feed(feed, asyncioloop):
     start_skew = FEED.getint("start_skew", rss_refresh_time)
     start_skew_min = FEED.getint("start_skew_min", 1)
     max_age = FEED.getint("max_age", 86400)
+    # Cap for the exponential backoff applied on rate-limit/overload responses.
+    backoff_max = FEED.getint("backoff_max", 86400)
 
     # loop through all the channels this feed is configured to send to
     channels = []
@@ -561,6 +570,10 @@ async def background_check_feed(feed, asyncioloop):
     # One HTTP session per feed task, reused across polls instead of opening
     # (and tearing down) a fresh one on every fetch.
     httpclient = aiohttp.ClientSession()
+
+    # Interval between polls.  Starts at the configured refresh time, doubles
+    # (up to backoff_max) when the feed rate-limits us, and resets on success.
+    current_refresh = rss_refresh_time
 
     # Basically run forever
     while True:
@@ -652,8 +665,19 @@ async def background_check_feed(feed, asyncioloop):
             # later.
             elif http_response.status == 304:
                 logger.info(feed + ":data is old; moving on")
+                current_refresh = rss_refresh_time  # server responded fine
                 http_response.close()
                 raise HTTPNotModified()
+            # Rate-limited / overloaded: exponentially back off how often we
+            # poll this feed (double the interval, capped at backoff_max).
+            elif http_response.status in BACKOFF_STATUSES:
+                current_refresh = min(current_refresh * 2, backoff_max)
+                logger.warning(
+                    "%s:HTTP %s (rate-limited/overloaded); backing off, "
+                    "next check in %d seconds",
+                    feed, http_response.status, current_refresh)
+                http_response.close()
+                raise HTTPError()
             # If we get anything but a 200, that's a problem and we don't
             # have good data, so give up and try later.
             # Mostly handled different than 304/not-modified to make logging
@@ -665,6 +689,11 @@ async def background_check_feed(feed, asyncioloop):
                 raise HTTPError()
             else:
                 logger.info(feed + ":HTTP success")
+                if current_refresh != rss_refresh_time:
+                    logger.warning(
+                        "%s:recovered; refresh interval back to %d seconds",
+                        feed, rss_refresh_time)
+                    current_refresh = rss_refresh_time
 
             # send_typing is configurable per-room.  Only do it now that we
             # know the feed actually changed (HTTP 200, not a 304/not-modified),
@@ -967,9 +996,9 @@ async def background_check_feed(feed, asyncioloop):
             logger.info(
                 feed +
                 ":sleeping for " +
-                str(rss_refresh_time) +
+                str(current_refresh) +
                 " seconds")
-            await asyncio.sleep(rss_refresh_time)
+            await asyncio.sleep(current_refresh)
 
 
 # @client.async_event
