@@ -642,9 +642,10 @@ async def background_check_feed(feed, asyncioloop):
             # Mostly handled different than 304/not-modified to make logging
             # clearer.
             elif http_response.status != 200:
-                logger.info(feed + ":HTTP error not 200")
+                logger.warning(
+                    "%s:unexpected HTTP status %s", feed, http_response.status)
                 http_response.close()
-                raise HTTPNotModified()
+                raise HTTPError()
             else:
                 logger.info(feed + ":HTTP success")
 
