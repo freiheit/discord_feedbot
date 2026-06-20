@@ -90,10 +90,7 @@ CREATE TABLE IF NOT EXISTS feed_info (
 SQL_CREATE_FEED_ITEMS_TBL = """
 CREATE TABLE IF NOT EXISTS feed_items (
     id text PRIMARY KEY,
-    published text,
-    title text,
-    url text,
-    reposted text
+    published text
 )
 """
 
@@ -300,13 +297,63 @@ def sql_maintenance(config):
     conn.execute(SQL_CREATE_FEED_INFO_TBL)
     conn.execute(SQL_CREATE_FEED_ITEMS_TBL)
 
+    migrate_db(conn)
+
     # Clean out *some* entries that are over 10 years old...
     # Doing this cleanup at start time because some feeds
     # do contain very old items and we don't want to keep
     # re-evaluating them.
     conn.execute(SQL_CLEAN_OLD_ITEMS)
 
+    conn.commit()
     conn.close()
+
+
+def migrate_db(conn):
+    """Apply schema migrations and data fixes to an existing database."""
+    feed_info_cols = {r[1] for r in conn.execute("PRAGMA table_info(feed_info)")}
+    feed_items_cols = {r[1] for r in conn.execute("PRAGMA table_info(feed_items)")}
+
+    if "content_hash" not in feed_info_cols:
+        conn.execute("ALTER TABLE feed_info ADD COLUMN content_hash text")
+        logger.warning("migrate_db: added content_hash column to feed_info")
+
+    dead_cols = {"title", "url", "reposted"} & feed_items_cols
+    if dead_cols:
+        # ALTER TABLE DROP COLUMN requires SQLite 3.35+; use table-rebuild for
+        # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).
+        conn.execute(
+            "CREATE TABLE feed_items_new (id text PRIMARY KEY, published text)"
+        )
+        conn.execute("INSERT INTO feed_items_new SELECT id, published FROM feed_items")
+        conn.execute("DROP TABLE feed_items")
+        conn.execute("ALTER TABLE feed_items_new RENAME TO feed_items")
+        logger.warning(
+            "migrate_db: removed unused columns from feed_items: %s", dead_cols
+        )
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(published)"
+    )
+
+    # Normalize any published dates that SQLite's julianday() can't parse
+    # (old rows may have been stored in ctime or RFC-1123 format).
+    bad_rows = conn.execute(
+        "SELECT id, published FROM feed_items WHERE julianday(published) IS NULL"
+    ).fetchall()
+    for row_id, raw_date in bad_rows:
+        try:
+            parsed = parse_datetime(raw_date, tzinfos=TZINFOS)
+            conn.execute(
+                "UPDATE feed_items SET published=? WHERE id=?",
+                [parsed.astimezone(timezone.utc).isoformat(), row_id],
+            )
+        except Exception:
+            pass
+    if bad_rows:
+        logger.warning(
+            "migrate_db: normalized %d stale published date(s)", len(bad_rows)
+        )
 
 
 config, logger = get_config()
@@ -888,7 +935,7 @@ async def background_check_feed(feed, asyncioloop):
                 logger.trace(feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
-                    "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
+                    "SELECT 1 FROM feed_items WHERE id=?",
                     [itemid],
                 )
                 data = cursor.fetchone()
