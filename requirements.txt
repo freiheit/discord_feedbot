@@ -11,6 +11,3 @@ pylint
 python-dateutil
 pytz
 requests
-six
-urllib3
-ws4py
