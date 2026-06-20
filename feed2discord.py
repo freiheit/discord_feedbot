@@ -609,8 +609,8 @@ async def background_check_feed(feed, asyncioloop):
                 else:
                     logger.info(feed + ":no stored lastmodified")
                 if etag is not None and len(etag):
-                    logger.info(feed + ":adding header ETag: " + etag)
-                    http_headers["ETag"] = etag
+                    logger.info(feed + ":adding header If-None-Match: " + etag)
+                    http_headers["If-None-Match"] = etag
                 else:
                     logger.info(feed + ":no stored ETag")
 
