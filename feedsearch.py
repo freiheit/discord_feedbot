@@ -23,6 +23,7 @@ feed found here is one feed2discord can actually fetch too.
 
 Usage: feedsearch.py [URL]   (prompts for the URL if not given)
 """
+import json
 import re
 import sys
 from html.parser import HTMLParser
@@ -60,23 +61,36 @@ def fetch(url):
 
 
 def feed_info(content):
-    """If content parses as a real feed return (title, version, n_entries)."""
+    """If content parses as a real feed return (title, version, n_entries).
+
+    Covers every format feedparser understands (RSS 0.9x/1.0/2.0, RDF, Atom,
+    CDF, ...) plus JSON Feed, which feedparser does NOT support, so we detect
+    that one ourselves.
+    """
     parsed = feedparser.parse(content)
-    if not parsed.version:  # not a recognized feed format at all
-        return None
-    # Accept a feed with entries even if slightly malformed; for an empty feed
-    # insist it parsed cleanly, so we don't mistake an HTML page for a feed.
-    if len(parsed.entries) == 0 and parsed.bozo:
-        return None
-    title = parsed.feed.get("title", "(untitled)")
-    return (title, parsed.version, len(parsed.entries))
+    if parsed.version:  # a feedparser-recognized XML feed
+        # Accept a feed with entries even if slightly malformed; for an empty
+        # feed insist it parsed cleanly, so we don't mistake HTML for a feed.
+        if len(parsed.entries) == 0 and parsed.bozo:
+            return None
+        return (parsed.feed.get("title", "(untitled)"), parsed.version, len(parsed.entries))
+    # JSON Feed (https://jsonfeed.org) -- feedparser can't parse it.
+    if content.lstrip(b"\xef\xbb\xbf").lstrip()[:1] == b"{":
+        try:
+            data = json.loads(content)
+        except (ValueError, TypeError):
+            return None
+        version = data.get("version", "") if isinstance(data, dict) else ""
+        if isinstance(version, str) and "jsonfeed.org" in version:
+            return (data.get("title", "(untitled)"), "json", len(data.get("items", [])))
+    return None
 
 
 def _looks_like_feed(content):
-    """Cheap check: does the body start like an XML/feed document?"""
-    head = content[:512].lstrip().lower()
-    return (head.startswith(b"<?xml") or b"<rss" in head
-            or b"<feed" in head or b"<rdf" in head)
+    """Cheap check: does the body start like an XML feed or a JSON Feed?"""
+    head = content.lstrip(b"\xef\xbb\xbf").lstrip()[:1024].lower()
+    return (head.startswith(b"<?xml") or b"<rss" in head or b"<feed" in head
+            or b"<rdf" in head or head.startswith(b"{"))
 
 
 def validate(url):
@@ -342,7 +356,8 @@ def main():
     for feed_url, title, version, n_entries in feeds:
         print("  %s" % feed_url)
         print("      title: %s" % title)
-        print("      type: %s, entries: %d" % (version, n_entries))
+        note = "  (JSON Feed -- feed2discord/feedparser cannot consume this)" if version == "json" else ""
+        print("      type: %s, entries: %d%s" % (version, n_entries, note))
 
 
 if __name__ == "__main__":
