@@ -958,7 +958,10 @@ async def on_ready():
 # Set up the tasks for each feed and start the main event loop thing.
 # In this __main__ thing so can be used as library.
 def main():
-    loop = asyncio.get_event_loop()
+    # Create our own loop instead of asyncio.get_event_loop(), which is
+    # deprecated (and slated for removal) when called with no running loop.
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     feeds = get_feeds_config(config)
     sql_maintenance(config)
