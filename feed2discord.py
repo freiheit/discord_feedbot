@@ -4,6 +4,7 @@
 # See LICENSE.md for full details.
 
 import asyncio
+import calendar
 import logging
 import os
 import random
@@ -16,7 +17,7 @@ import html
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
@@ -27,6 +28,7 @@ import feedparser
 
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
+from dateutil.tz import gettz
 from html2text import HTML2Text
 
 
@@ -35,6 +37,17 @@ __version__ = "3.2.0"
 
 PROG_NAME = "linux:github.com/freiheit/discord_feedbot"
 USER_AGENT = "%s:%s (by /u/freiheit)" % (PROG_NAME, __version__)
+
+# Timezone abbreviations dateutil can't resolve on its own (some RSS/RFC-822
+# feeds use these instead of numeric offsets).  US zones cover the feeds we
+# follow; every date is normalized to UTC regardless.
+TZINFOS = {
+    "UT": timezone.utc, "UTC": timezone.utc, "GMT": timezone.utc, "Z": timezone.utc,
+    "EST": gettz("America/New_York"), "EDT": gettz("America/New_York"),
+    "CST": gettz("America/Chicago"), "CDT": gettz("America/Chicago"),
+    "MST": gettz("America/Denver"), "MDT": gettz("America/Denver"),
+    "PST": gettz("America/Los_Angeles"), "PDT": gettz("America/Los_Angeles"),
+}
 
 SQL_CREATE_FEED_INFO_TBL = """
 CREATE TABLE IF NOT EXISTS feed_info (
@@ -225,23 +238,30 @@ client = discord.Client(
 
 async def extract_best_item_date(item, tzinfo):
     # This function loops through all the common date fields for an item in
-    # a feed, and extracts the "best" one.  Falls back to "now" if nothing
-    # is found.
+    # a feed and returns the "best" one as a UTC-aware datetime (we keep and
+    # compare all times in UTC).  Falls back to "now" if nothing is found.
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
         if date_field in item and len(item[date_field]) > 0:
+            # Prefer feedparser's pre-parsed struct_time: it resolves named
+            # zones (EST/EDT/PST/...) that dateutil can't, and is already UTC.
+            parsed = item.get(date_field + "_parsed")
+            if parsed is not None:
+                return datetime.fromtimestamp(
+                    calendar.timegm(parsed), tz=timezone.utc)
             try:
-                date_obj = parse_datetime(item[date_field])
-
+                # Fall back to the raw string; TZINFOS lets dateutil understand
+                # common zone abbreviations.  A string carrying no zone at all
+                # is assumed to be in the configured timezone, then converted.
+                date_obj = parse_datetime(item[date_field], tzinfos=TZINFOS)
                 if date_obj.tzinfo is None:
                     date_obj = tzinfo.localize(date_obj)
-
-                return date_obj
+                return date_obj.astimezone(timezone.utc)
             except Exception:
                 pass
 
-    # No potentials found, default to current timezone's "now"
-    return tzinfo.localize(datetime.now())
+    # No potentials found, default to "now" in UTC
+    return datetime.now(timezone.utc)
 
 
 async def should_send_typing(conf, feed_name):
@@ -727,9 +747,7 @@ async def background_check_feed(feed, asyncioloop):
                     # much stuff into a room, but is also a useful safety
                     # measure in case a feed suddenly reverts to something
                     # ancient or other weird problems...
-                    time_since_published = TIMEZONE.localize(
-                        datetime.now()
-                    ) - pubdate.astimezone(TIMEZONE)
+                    time_since_published = datetime.now(timezone.utc) - pubdate
 
                     logger.debug('%s:time_since_published.total_seconds:%s,max_age:%s',
                                  feed, time_since_published.total_seconds(), max_age)
