@@ -452,8 +452,7 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 async def actually_send_message(channel, message, delay, FEED, feed):
     if await should_send_typing(FEED, feed):
-        async with channel["object"].typing():
-            pass
+        await channel["object"].typing()
 
     logger.info(
         "%s:%s:sleeping for %i seconds before sending message",
@@ -557,8 +556,7 @@ async def background_check_feed(feed, asyncioloop):
                     # Since this is first attempt to talk to this channel,
                     # be very verbose about failures to talk to channel
                     try:
-                        async with channel["object"].typing():
-                            pass
+                        await channel["object"].typing()
                     except discord.errors.Forbidden:
                         logger.exception(
                             "%s:%s:forbidden - is bot allowed in channel?",
