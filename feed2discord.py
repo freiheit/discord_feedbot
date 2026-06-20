@@ -34,6 +34,17 @@ from html2text import HTML2Text
 
 __version__ = "3.2.0"
 
+TRACE_LEVEL = 5
+logging.addLevelName(TRACE_LEVEL, "TRACE")
+
+
+def _logger_trace(self, message, *args, **kwargs):
+    if self.isEnabledFor(TRACE_LEVEL):
+        self._log(TRACE_LEVEL, message, args, **kwargs)
+
+
+logging.Logger.trace = _logger_trace
+
 
 PROG_NAME = "linux:github.com/freiheit/discord_feedbot"
 USER_AGENT = "%s:%s (by /u/freiheit)" % (PROG_NAME, __version__)
@@ -158,7 +169,9 @@ def get_config():
         reload(aiohttp)
         reload(discord)
 
-    if debug >= 3:
+    if debug >= 4:
+        log_level = TRACE_LEVEL
+    elif debug >= 3:
         log_level = logging.DEBUG
     elif debug >= 2:
         log_level = logging.INFO
@@ -778,15 +791,15 @@ async def background_check_feed(feed, asyncioloop):
                 # SQL_CLEAN_OLD_ITEMS); the old ctime-style format returned NULL.
                 pubdate_fmt = pubdate.isoformat()
 
-                logger.debug(
+                logger.trace(
                     "%s:item:processing this entry:%s:%s",
                     feed,
                     itemid,
                     pubdate_fmt,
                 )
 
-                logger.debug(feed + ":item:itemid:" + itemid)
-                logger.debug(feed + ":item:checking database history for this item")
+                logger.trace(feed + ":item:itemid:" + itemid)
+                logger.trace(feed + ":item:checking database history for this item")
                 # Check DB for this item
                 cursor = conn.execute(
                     "SELECT published,title,url,reposted FROM feed_items WHERE id=?",
@@ -812,7 +825,7 @@ async def background_check_feed(feed, asyncioloop):
                     # ancient or other weird problems...
                     time_since_published = datetime.now(timezone.utc) - pubdate
 
-                    logger.debug(
+                    logger.trace(
                         "%s:time_since_published.total_seconds:%s,max_age:%s",
                         feed,
                         time_since_published.total_seconds(),
@@ -944,7 +957,7 @@ async def background_check_feed(feed, asyncioloop):
                         logger.debug(item)
                 # seen before, move on:
                 else:
-                    logger.debug(feed + ":item:" + itemid + " seen before, skipping")
+                    logger.trace(feed + ":item:" + itemid + " seen before, skipping")
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             logger.info(
