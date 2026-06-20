@@ -57,7 +57,7 @@ Things to check:
 - `date +%Z` # careful, may give you a timezone only useful half of the year
 
 ## It looks like it's working, but nothing posts, and logs say `too old; skipping` for everything.
-Double-check your timezone settings! If the timezone isn't right, and max_age 
+Double-check your timezone settings! If the timezone isn't right, and max_age
 is under 24 hours (86400), then it's possible for brand-new posts to look too
 old to post.
 
@@ -73,9 +73,9 @@ DEBUG:__main__:reddit:pubDate_parsed.astimezome(timezone):2016-07-04 07:04:44-07
 ```
 
 If `now:localtime` doesn't look like your current time and/or `now:gmtime`
-doesn't look like current UTC time, that's your problem. 
+doesn't look like current UTC time, that's your problem.
 `now:gmtime` being off indicates your system clock is wrong.
-If `now:gmtime` is right, but `now:localtime` is not, you probably have the 
+If `now:gmtime` is right, but `now:localtime` is not, you probably have the
 timezone set wrong in your .ini file.
 
 Workarounds:

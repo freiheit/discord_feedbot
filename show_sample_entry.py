@@ -9,7 +9,9 @@ import sys
 import feedparser_rs as feedparser  # Rust parser: matches feed2discord
 import requests
 
-USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
+USER_AGENT = (
+    "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
+)
 # Fetch the same way feed2discord does (real UA, gzip/deflate -- no brotli, which
 # some servers emit undecodably).  feedparser_rs.parse() takes content, not a URL.
 HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}

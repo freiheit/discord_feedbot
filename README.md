@@ -7,7 +7,7 @@
 
 # [Discord RSS Bot](https://gitlab.com/ffreiheit/discord_feedbot)
 
-Primary location is https://gitlab.com/ffreiheit/discord_feedbot -- 
+Primary location is https://gitlab.com/ffreiheit/discord_feedbot --
 github.com/freiheit/discord_feedbot is a mirror and all others are forks.
 
 ![Feed Bot](avatars/avatar-angry-small.png)
@@ -22,7 +22,7 @@ It should be possible to use as a library in another bot. (But can simply
 run with same tokens instead, since it's write-only to discord)
 
 Since this bot doesn't *react* to anything in channels or messages, you can
-have it sign into the same account as another bot, and externally it should 
+have it sign into the same account as another bot, and externally it should
 appear to be a single bot.
 
 
@@ -67,8 +67,8 @@ user.
 
 
 # Frequently Asked Questions (FAQ)
-FAQ items are in 
-[INSTALLING.md](INSTALLING.md) and 
+FAQ items are in
+[INSTALLING.md](INSTALLING.md) and
 [FEEDS.md](FEEDS.md)
 
 # Contributing
@@ -99,4 +99,3 @@ I'm happy to donate my time.
 But if you want to thank me financially:
 [![ko-fi](https://www.ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/V7V21T7Y9)
 Or: https://discord.com/servers/feedbot-910747606722965555
-

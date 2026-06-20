@@ -23,6 +23,7 @@ feed found here is one feed2discord can actually fetch too.
 
 Usage: feedsearch.py [URL]   (prompts for the URL if not given)
 """
+
 import re
 import sys
 from html.parser import HTMLParser
@@ -78,8 +79,13 @@ def feed_info(content):
 def _looks_like_feed(content):
     """Cheap check: does the body start like an XML feed or a JSON Feed?"""
     head = content.lstrip(b"\xef\xbb\xbf").lstrip()[:1024].lower()
-    return (head.startswith(b"<?xml") or b"<rss" in head or b"<feed" in head
-            or b"<rdf" in head or head.startswith(b"{"))
+    return (
+        head.startswith(b"<?xml")
+        or b"<rss" in head
+        or b"<feed" in head
+        or b"<rdf" in head
+        or head.startswith(b"{")
+    )
 
 
 def validate(url):
@@ -126,8 +132,8 @@ class LinkExtractor(HTMLParser):
 
     def __init__(self):
         super().__init__()
-        self.alt_links = []   # hrefs from <link rel=alternate type=.../rss+xml>
-        self.anchors = []     # (href, text) from <a href=...>
+        self.alt_links = []  # hrefs from <link rel=alternate type=.../rss+xml>
+        self.anchors = []  # (href, text) from <a href=...>
         self._href = None
         self._text = []
 
@@ -137,8 +143,10 @@ class LinkExtractor(HTMLParser):
             rel = d.get("rel", "").lower()
             typ = d.get("type", "").lower()
             href = d.get("href")
-            if href and ("alternate" in rel or not rel) and (
-                "rss" in typ or "atom" in typ or "rdf" in typ
+            if (
+                href
+                and ("alternate" in rel or not rel)
+                and ("rss" in typ or "atom" in typ or "rdf" in typ)
             ):
                 self.alt_links.append(href)
         elif tag == "a" and d.get("href"):
@@ -180,7 +188,9 @@ def method_body_links(base, html, limit=20, stop_after=3):
         if FEED_HINT.search(href) or FEED_HINT.search(text)
     ]
     # plus any raw absolute URLs in the markup that look feed-ish
-    cands += [u for u in re.findall(r'https?://[^\s"\'<>]+', html) if FEED_HINT.search(u)]
+    cands += [
+        u for u in re.findall(r'https?://[^\s"\'<>]+', html) if FEED_HINT.search(u)
+    ]
     # link-heavy pages (e.g. GitHub) can have many feed-ish-looking URLs that
     # aren't feeds; bound how many we probe so this stays responsive.
     return _validate_candidates(cands, limit=limit, stop_after=stop_after)
@@ -237,8 +247,9 @@ def method_feed_page(base, html):
         if not got or got[0] != 200:
             continue
         sub_html = got[2].decode("utf-8", "replace")
-        found = (method_autodiscovery(got[1], sub_html)
-                 or method_body_links(got[1], sub_html, limit=6, stop_after=2))
+        found = method_autodiscovery(got[1], sub_html) or method_body_links(
+            got[1], sub_html, limit=6, stop_after=2
+        )
         if found:
             return found
     return []
@@ -258,13 +269,31 @@ def method_url_patterns(url):
     # short-circuit usually hits quickly.  (JSON Feed / index.json is omitted:
     # feedparser can't parse it, so the bot couldn't consume it anyway.)
     suffixes = [
-        "feed/", "feed", "feed.xml", "feed/default",
-        "rss", "rss/", "rss.xml", "rss/index.xml",
-        "atom.xml", "atom",
-        "index.xml", "index.rss", "index.atom", "index.rdf",
-        "feeds", "feeds/default", "feeds/rss/", "feeds/posts/default",
-        "rdf", "data/rss", "feed/rss/",
-        "?feed=rss2", "?feed=rss", "?feed=atom", "?feed=rdf",
+        "feed/",
+        "feed",
+        "feed.xml",
+        "feed/default",
+        "rss",
+        "rss/",
+        "rss.xml",
+        "rss/index.xml",
+        "atom.xml",
+        "atom",
+        "index.xml",
+        "index.rss",
+        "index.atom",
+        "index.rdf",
+        "feeds",
+        "feeds/default",
+        "feeds/rss/",
+        "feeds/posts/default",
+        "rdf",
+        "data/rss",
+        "feed/rss/",
+        "?feed=rss2",
+        "?feed=rss",
+        "?feed=atom",
+        "?feed=rdf",
     ]
     roots = [origin + "/"]
     if path_dir not in ("/", ""):

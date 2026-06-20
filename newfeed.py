@@ -27,6 +27,7 @@ def fetch_feed(url):
     resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
     return feedparser.parse(resp.content)
 
+
 # Get login_token from config:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HOME_DIR = os.path.expanduser("~")
@@ -63,7 +64,7 @@ term_size = shutil.get_terminal_size(fallback=(80, 24))
 columns = term_size[0]
 
 # Get feed URL from CLI or prompt for it:
-feed_url = ''
+feed_url = ""
 if len(sys.argv) == 2:
     feed_url = sys.argv[1]
 else:
@@ -76,7 +77,9 @@ if feed_data.entries:
     print("----------")
     pp.pprint(dict(feed_data.entries[0]))
     print("----------")
-    print("Recommend: try posting links in a room somewhere to see if discord gives a nice preview")
+    print(
+        "Recommend: try posting links in a room somewhere to see if discord gives a nice preview"
+    )
     print("----------")
 else:
     print("No entries in feed? Are you sure that URL is good?")
@@ -85,7 +88,9 @@ print()
 print("Example (if discord has nice link preview): link")
 print("Example (super-typical): **title**,*published*,<link>,summary")
 print("Example (super-typical): **title**,*published*,<link>,description")
-print('Example (if title not great): "**Discord Status**",**title**,published,summary,<link>')
+print(
+    'Example (if title not great): "**Discord Status**",**title**,published,summary,<link>'
+)
 print("Example (podcast): **title**,**subtitle**,*pubDate*,link,itunes_duration")
 fields = input("Feed Fields: ")
 
@@ -96,15 +101,18 @@ class MyClient(discord.Client):
     room_id = 0
 
     async def on_ready(self):
-        print('Connected!')
-        print('Username: {0.name}\nID: {0.id}'.format(self.user))
+        print("Connected!")
+        print("Username: {0.name}\nID: {0.id}".format(self.user))
 
         old_room = self.get_channel(default_room)
-        new_room = await old_room.clone(name=name, reason=f'feedbot {feed_url} {fields}')
+        new_room = await old_room.clone(
+            name=name, reason=f"feedbot {feed_url} {fields}"
+        )
         await new_room.edit(reason="Update topic", topic=feed_url)
         self.room_id = new_room.id
 
         await self.close()
+
 
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
@@ -112,7 +120,7 @@ client.run(login_token)
 
 room_id = client.room_id
 
-room_slug = f'{name} = {room_id}'
+room_slug = f"{name} = {room_id}"
 
 feed_slug = f"""[{name}]
 channels = {name}
@@ -126,9 +134,9 @@ print("Do those look good?")
 yesno = input("y/n: ")
 
 if yesno == "y" or yesno == "Y":
-    with in_place.InPlace('feed2discord.local.ini', backup_ext='~') as inifile:
+    with in_place.InPlace("feed2discord.local.ini", backup_ext="~") as inifile:
         for line in inifile:
-            if re.match(f'default *= *{default_room}', line):
+            if re.match(f"default *= *{default_room}", line):
                 inifile.write(room_slug)
                 inifile.write("\n")
             inifile.write(line)
