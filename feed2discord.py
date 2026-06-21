@@ -376,6 +376,8 @@ def migrate_db(conn):
     bad_rows = conn.execute(
         "SELECT id, published FROM feed_items WHERE julianday(published) IS NULL"
     ).fetchall()
+    updated = 0
+    deleted = 0
     for row_id, raw_date in bad_rows:
         try:
             parsed = parse_datetime(raw_date, tzinfos=TZINFOS)
@@ -383,12 +385,19 @@ def migrate_db(conn):
                 "UPDATE feed_items SET published=? WHERE id=?",
                 [parsed.astimezone(timezone.utc).isoformat(), row_id],
             )
+            updated += 1
         except Exception:
-            pass
-    if bad_rows:
-        logger.notice(
-            "migrate_db: normalized %d stale published date(s)", len(bad_rows)
-        )
+            logger.warning(
+                "migrate_db: unparseable published date %r for id %r, deleting row",
+                raw_date,
+                row_id,
+            )
+            conn.execute("DELETE FROM feed_items WHERE id=?", [row_id])
+            deleted += 1
+    if updated:
+        logger.notice("migrate_db: normalized %d stale published date(s)", updated)
+    if deleted:
+        logger.notice("migrate_db: deleted %d unparseable feed item row(s)", deleted)
 
 
 config, logger = get_config()
@@ -459,6 +468,12 @@ async def maybe_send_typing(FEED, feed, channels):
         except discord.errors.Forbidden:
             logger.exception(
                 "%s:%s:forbidden - is bot allowed in channel?", feed, channel
+            )
+        except discord.errors.NotFound:
+            logger.warning(
+                "%s:%s:channel not found (404) — check channel config",
+                feed,
+                channel["name"],
             )
         except (asyncio.TimeoutError, discord.errors.RateLimited):
             typing_disabled.add(feed)
@@ -1207,7 +1222,7 @@ async def background_check_feed(feed, asyncioloop):
             )
         # unknown error: definitely give up and die and move on
         except Exception:
-            logger.exception("Unexpected error - giving up")
+            logger.exception("%s:Unexpected error - giving up", feed)
             # Don't raise?
             # raise
         # No matter what goes wrong, wait same time and try again
