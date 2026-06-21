@@ -7,20 +7,45 @@
 
 import discord
 import feedparser_rs as feedparser  # Rust parser: matches feed2discord
+import html
 import in_place
 import os
 import re
-import pprint
 import readline  # noqa: F401 -- imported for its side effect: input() line editing
 import requests
-import shutil
 import sys
 from configparser import ConfigParser
+from html2text import HTML2Text
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
 # Fetch like feed2discord (real UA, gzip/deflate -- no brotli); feedparser_rs
 # parses content, not URLs.
 HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
+
+
+def render_text_field(value):
+    """Render a string field the same way feed2discord's process_field does."""
+    h = HTML2Text()
+    h.ignore_links = True
+    h.ignore_images = True
+    h.ignore_emphasis = False
+    h.body_width = 1000
+    h.unicode_snob = True
+    h.ul_item_mark = "-"
+    rendered = h.handle(html.unescape(value))
+    return re.sub("<[^<]+?>", "", rendered).strip()
+
+
+def print_rendered(entry_dict):
+    for key, value in entry_dict.items():
+        if not isinstance(value, str) or not value.strip():
+            continue
+        rendered = render_text_field(value)
+        truncated = len(rendered) > 500
+        print(f"\n=== {key} ===")
+        print(rendered[:500])
+        if truncated:
+            print("... (truncated)")
 
 
 def fetch_feed(url):
@@ -59,10 +84,6 @@ config.read(config_paths)
 login_token = config.get("MAIN", "login_token")
 default_room = config.getint("MAIN", "default_room")
 
-# Get terminal width
-term_size = shutil.get_terminal_size(fallback=(80, 24))
-columns = term_size[0]
-
 # Get feed URL from CLI or prompt for it:
 feed_url = ""
 if len(sys.argv) == 2:
@@ -72,10 +93,10 @@ else:
 
 feed_data = fetch_feed(feed_url)
 if feed_data.entries:
-    pp = pprint.PrettyPrinter(indent=4, depth=1, width=columns)
+    entry = dict(feed_data.entries[0])
     print("Latest feed item to help you figure out fields")
     print("----------")
-    pp.pprint(dict(feed_data.entries[0]))
+    print_rendered(entry)
     print("----------")
     print(
         "Recommend: try posting links in a room somewhere to see if discord gives a nice preview"
@@ -86,12 +107,15 @@ else:
     print("(version=%r bozo=%r)" % (feed_data.version, feed_data.bozo))
 print()
 print("Example (if discord has nice link preview): link")
-print("Example (super-typical): **title**,*published*,<link>,summary")
-print("Example (super-typical): **title**,*published*,<link>,description")
+print("Example (super-typical): ##title,-#published,<link>,>summary")
 print(
-    'Example (if title not great): "**Discord Status**",**title**,published,summary,<link>'
+    "Example (if various useful authors): ##title,_author_,-#published,<link>,>summary"
 )
-print("Example (podcast): **title**,**subtitle**,*pubDate*,link,itunes_duration")
+print("Example (super-typical): ##title,-#published,<link>,>description")
+print(
+    'Example (if title not great): "# Discord Status",##title,-#published,<link>,>summary'
+)
+print("Example (podcast): ##title,###subtitle,-#pubDate,link,itunes_duration")
 fields = input("Feed Fields: ")
 
 name = input("Feed and Channel Name: ")
