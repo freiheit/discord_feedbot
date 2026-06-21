@@ -853,12 +853,12 @@ def _store_feed_cache(conn, http_response, new_hash, feed, feed_url):
 
 def _get_item_id(item, feed):
     """Return the best available unique id for a feed item, or None."""
-    if item.get("id"):
-        return item.id
-    if item.get("guid"):
-        return item.guid
-    if item.get("link"):
-        return item.link
+    if item.get("id") is not None:
+        return item.get("id")
+    if item.get("guid") is not None:
+        return item.get("guid")
+    if item.get("link") is not None:
+        return item.get("link")
     logger.error(feed + ":item:no itemid, skipping")
     return None
 
