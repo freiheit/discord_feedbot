@@ -591,6 +591,16 @@ def _field_plain(field, item, FEED):
     return ""
 
 
+_RE_STRING = re.compile(r'^"(.+?)"$')
+_RE_HIGHLIGHT = re.compile(r"^((?:[*_<]|~~|\|\|)+)(.+?)((?:[*_>]|~~|\|\|)+)$")
+_RE_HEADER = re.compile(r"^(-?#+)\s*(.+)$")
+_RE_BIGCODE = re.compile(r"^```(.+)```$")
+_RE_QUOTE = re.compile(r"^>\s*(.+)$")
+_RE_CODE = re.compile(r"^`(.+)`$")
+_RE_TAG = re.compile(r"^@(.+)$")
+_RE_DICT = re.compile(r"^\[(.+)\](.+)\.(.+)$")
+
+
 async def process_field(field, item, FEED, channel):
     """Render one field spec to a string. Returns str. Called by build_message() and _apply_channel_filter()."""
     logger.trace("%s:process_field:%s: started", FEED, field)
@@ -606,16 +616,14 @@ async def process_field(field, item, FEED, channel):
             return ""
 
     logger.trace("%s:process_field:%s: checking regexes", FEED, field)
-    stringmatch = re.match('^"(.+?)"$', field)
-    highlightmatch = re.match(
-        "^((?:[*_<]|~~|\\|\\|)+)(.+?)((?:[*_>]|~~|\\|\\|)+)$", field
-    )
-    headermatch = re.match(r"^(-?#+)\s*(.+)$", field)
-    bigcodematch = re.match("^```(.+)```$", field)
-    quotematch = re.match(r"^>\s*(.+)$", field)
-    codematch = re.match("^`(.+)`$", field)
-    tagmatch = re.match("^@(.+)$", field)
-    dictmatch = re.match(r"^\[(.+)\](.+)\.(.+)$", field)
+    stringmatch = _RE_STRING.match(field)
+    highlightmatch = _RE_HIGHLIGHT.match(field)
+    headermatch = _RE_HEADER.match(field)
+    bigcodematch = _RE_BIGCODE.match(field)
+    quotematch = _RE_QUOTE.match(field)
+    codematch = _RE_CODE.match(field)
+    tagmatch = _RE_TAG.match(field)
+    dictmatch = _RE_DICT.match(field)
 
     if stringmatch is not None:
         logger.trace("%s:process_field:%s:isString", FEED, field)
