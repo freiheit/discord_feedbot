@@ -165,8 +165,7 @@ class _JournalHandler(logging.Handler):
         NOTICE_LEVEL: 5,  # syslog NOTICE — visible at debug=0
         logging.INFO: 6,
         logging.DEBUG: 7,
-        VERBOSE_LEVEL: 7,
-        TRACE_LEVEL: 7,
+        # VERBOSE and TRACE fall through to the default of 7 in emit()
     }
 
     def __init__(self, identifier, level=logging.NOTSET):
