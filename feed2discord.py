@@ -880,7 +880,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + ":item:using filter:"
             + regexpat
             + " on "
-            + item["title"]
+            + item.get("title", "?")
             + " field "
             + filter_field
         )
@@ -902,7 +902,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + ":item:using filter_exclude:"
             + regexpat
             + " on "
-            + item["title"]
+            + item.get("title", "?")
             + " field "
             + filter_field
         )
