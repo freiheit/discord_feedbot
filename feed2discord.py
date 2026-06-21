@@ -491,7 +491,6 @@ async def maybe_send_typing(FEED, feed, channels):
 
 
 def _make_html2text():
-    """Return a configured HTML2Text instance (links/images suppressed, wide body). Called by _field_quote() and _field_plain()."""
     h = HTML2Text()
     h.ignore_links = True
     h.ignore_images = True
@@ -500,6 +499,11 @@ def _make_html2text():
     h.unicode_snob = True
     h.ul_item_mark = "-"
     return h
+
+
+# Shared instance: HTML2Text.handle() resets its output buffer each call,
+# so the object is stateless between uses and safe to reuse.
+_h2t = _make_html2text()
 
 
 def _field_string(m):
@@ -542,7 +546,7 @@ def _field_quote(m, item):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
     if item.get(field) is not None:
-        content = _make_html2text().handle(html.unescape(item[field]))
+        content = _h2t.handle(html.unescape(item[field]))
         content = re.sub("<[^<]+?>", "", content).strip()
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
@@ -585,7 +589,7 @@ def _field_plain(field, item, FEED):
     if item.get(field) is not None:
         if field == "link":
             return urljoin(FEED.get("feed_url"), item[field])
-        markdownfield = _make_html2text().handle(html.unescape(item[field]))
+        markdownfield = _h2t.handle(html.unescape(item[field]))
         return re.sub("<[^<]+?>", "", markdownfield)
     logger.error("process_field:%s:no such field", field)
     return ""
