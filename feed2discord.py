@@ -512,7 +512,7 @@ def _field_highlight(m, item, FEED):
     begin, field, end = m.groups()
     if item.get(field) is not None:
         if field == "link":
-            return begin + urljoin(FEED.get("feed-url"), item[field]) + end
+            return begin + urljoin(FEED.get("feed_url"), item[field]) + end
         return begin + html.unescape(item[field]) + end
     logger.error("process_field:%s:no such field", field)
     return ""
