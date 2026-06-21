@@ -435,7 +435,7 @@ async def extract_best_item_date(item, tzinfo):
     """Return the best date for a feed item as a UTC-aware datetime, falling back to now. Called by background_check_feed()."""
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
-        if item.get(date_field) and len(item[date_field]) > 0:
+        if item.get(date_field):
             # Prefer feedparser's pre-parsed struct_time: it resolves named
             # zones (EST/EDT/PST/...) that dateutil can't, and is already UTC.
             parsed = item.get(date_field + "_parsed")
