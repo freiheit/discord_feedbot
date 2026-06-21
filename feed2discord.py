@@ -652,7 +652,7 @@ async def build_message(FEED, item, channel):
         message += await process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
-    message = re.sub(" +\n", "\n", message)
+    message = re.sub(r"(?<!>) +\n", "\n", message)
     message = re.sub("\n +", "\n", message)
 
     # squash newlines down to single ones, and do that last...
