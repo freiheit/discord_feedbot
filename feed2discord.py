@@ -165,8 +165,7 @@ class _JournalHandler(logging.Handler):
         NOTICE_LEVEL: 5,  # syslog NOTICE — visible at debug=0
         logging.INFO: 6,
         logging.DEBUG: 7,
-        VERBOSE_LEVEL: 7,
-        TRACE_LEVEL: 7,
+        # VERBOSE and TRACE fall through to the default of 7 in emit()
     }
 
     def __init__(self, identifier, level=logging.NOTSET):
@@ -435,7 +434,7 @@ async def extract_best_item_date(item, tzinfo):
     """Return the best date for a feed item as a UTC-aware datetime, falling back to now. Called by background_check_feed()."""
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
-        if item.get(date_field) and len(item[date_field]) > 0:
+        if item.get(date_field):
             # Prefer feedparser's pre-parsed struct_time: it resolves named
             # zones (EST/EDT/PST/...) that dateutil can't, and is already UTC.
             parsed = item.get(date_field + "_parsed")
@@ -472,7 +471,7 @@ async def maybe_send_typing(FEED, feed, channels):
             logger.verbose("%s:%s:sent typing", feed, channel["name"])
         except discord.errors.Forbidden:
             logger.exception(
-                "%s:%s:forbidden - is bot allowed in channel?", feed, channel
+                "%s:%s:forbidden - is bot allowed in channel?", feed, channel["name"]
             )
         except discord.errors.NotFound:
             logger.warning(
@@ -491,7 +490,6 @@ async def maybe_send_typing(FEED, feed, channels):
 
 
 def _make_html2text():
-    """Return a configured HTML2Text instance (links/images suppressed, wide body). Called by _field_quote() and _field_plain()."""
     h = HTML2Text()
     h.ignore_links = True
     h.ignore_images = True
@@ -500,6 +498,11 @@ def _make_html2text():
     h.unicode_snob = True
     h.ul_item_mark = "-"
     return h
+
+
+# Shared instance: HTML2Text.handle() resets its output buffer each call,
+# so the object is stateless between uses and safe to reuse.
+_h2t = _make_html2text()
 
 
 def _field_string(m):
@@ -512,7 +515,7 @@ def _field_highlight(m, item, FEED):
     begin, field, end = m.groups()
     if item.get(field) is not None:
         if field == "link":
-            return begin + urljoin(FEED.get("feed-url"), item[field]) + end
+            return begin + urljoin(FEED.get("feed_url"), item[field]) + end
         return begin + html.unescape(item[field]) + end
     logger.error("process_field:%s:no such field", field)
     return ""
@@ -542,7 +545,7 @@ def _field_quote(m, item):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
     if item.get(field) is not None:
-        content = _make_html2text().handle(html.unescape(item[field]))
+        content = _h2t.handle(html.unescape(item[field]))
         content = re.sub("<[^<]+?>", "", content).strip()
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
@@ -585,10 +588,20 @@ def _field_plain(field, item, FEED):
     if item.get(field) is not None:
         if field == "link":
             return urljoin(FEED.get("feed_url"), item[field])
-        markdownfield = _make_html2text().handle(html.unescape(item[field]))
+        markdownfield = _h2t.handle(html.unescape(item[field]))
         return re.sub("<[^<]+?>", "", markdownfield)
     logger.error("process_field:%s:no such field", field)
     return ""
+
+
+_RE_STRING = re.compile(r'^"(.+?)"$')
+_RE_HIGHLIGHT = re.compile(r"^((?:[*_<]|~~|\|\|)+)(.+?)((?:[*_>]|~~|\|\|)+)$")
+_RE_HEADER = re.compile(r"^(-?#+)\s*(.+)$")
+_RE_BIGCODE = re.compile(r"^```(.+)```$")
+_RE_QUOTE = re.compile(r"^>\s*(.+)$")
+_RE_CODE = re.compile(r"^`(.+)`$")
+_RE_TAG = re.compile(r"^@(.+)$")
+_RE_DICT = re.compile(r"^\[(.+)\](.+)\.(.+)$")
 
 
 async def process_field(field, item, FEED, channel):
@@ -606,16 +619,14 @@ async def process_field(field, item, FEED, channel):
             return ""
 
     logger.trace("%s:process_field:%s: checking regexes", FEED, field)
-    stringmatch = re.match('^"(.+?)"$', field)
-    highlightmatch = re.match(
-        "^((?:[*_<]|~~|\\|\\|)+)(.+?)((?:[*_>]|~~|\\|\\|)+)$", field
-    )
-    headermatch = re.match(r"^(-?#+)\s*(.+)$", field)
-    bigcodematch = re.match("^```(.+)```$", field)
-    quotematch = re.match(r"^>\s*(.+)$", field)
-    codematch = re.match("^`(.+)`$", field)
-    tagmatch = re.match("^@(.+)$", field)
-    dictmatch = re.match(r"^\[(.+)\](.+)\.(.+)$", field)
+    stringmatch = _RE_STRING.match(field)
+    highlightmatch = _RE_HIGHLIGHT.match(field)
+    headermatch = _RE_HEADER.match(field)
+    bigcodematch = _RE_BIGCODE.match(field)
+    quotematch = _RE_QUOTE.match(field)
+    codematch = _RE_CODE.match(field)
+    tagmatch = _RE_TAG.match(field)
+    dictmatch = _RE_DICT.match(field)
 
     if stringmatch is not None:
         logger.trace("%s:process_field:%s:isString", FEED, field)
@@ -853,12 +864,12 @@ def _store_feed_cache(conn, http_response, new_hash, feed, feed_url):
 
 def _get_item_id(item, feed):
     """Return the best available unique id for a feed item, or None."""
-    if item.get("id"):
-        return item.id
-    if item.get("guid"):
-        return item.guid
-    if item.get("link"):
-        return item.link
+    if item.get("id") is not None:
+        return item.get("id")
+    if item.get("guid") is not None:
+        return item.get("guid")
+    if item.get("link") is not None:
+        return item.get("link")
     logger.error(feed + ":item:no itemid, skipping")
     return None
 
@@ -880,7 +891,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + ":item:using filter:"
             + regexpat
             + " on "
-            + item["title"]
+            + item.get("title", "?")
             + " field "
             + filter_field
         )
@@ -902,7 +913,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + ":item:using filter_exclude:"
             + regexpat
             + " on "
-            + item["title"]
+            + item.get("title", "?")
             + " field "
             + filter_field
         )
@@ -1006,14 +1017,8 @@ async def background_check_feed(feed, asyncioloop):
         # (but see list of except/finally stuff below)
         conn = None
         try:
-            # set current "game played" constantly so that it sticks around
-            gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
-            await client.change_presence(activity=discord.Game(name=gameplayed))
-
             logger.info(feed + ": processing feed")
 
-            db_path = config["MAIN"].get("db_path", "feed2discord.db")
-            logger.trace(feed + ":db_debug:db_path=" + db_path)
             conn = get_sql_connection(config)
             logger.trace(feed + ":db_debug:conn=" + type(conn).__name__)
 
@@ -1170,8 +1175,15 @@ async def background_check_feed(feed, asyncioloop):
 
 
 @client.event
+async def _set_presence():
+    """Set the bot's 'game played' presence from config. Safe to call after every connect/resume."""
+    gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+    await client.change_presence(activity=discord.Game(name=gameplayed))
+
+
+@client.event
 async def on_ready():
-    """Log connection details and set bot avatar on startup. Called by discord.py when the client is ready."""
+    """Log connection details, set avatar, and set presence on startup. Called by discord.py when the client is ready."""
     logger.notice(
         "Connected to Discord as %s (id=%s) on %d guild(s)",
         client.user.name,
@@ -1186,6 +1198,8 @@ async def on_ready():
             avatar = f.read()
         await client.user.edit(avatar=avatar)
 
+    await _set_presence()
+
 
 @client.event
 async def on_disconnect():
@@ -1195,8 +1209,9 @@ async def on_disconnect():
 
 @client.event
 async def on_resumed():
-    """Log session resumption. Called by discord.py when the gateway reconnects."""
+    """Log session resumption and restore presence. Called by discord.py when the gateway reconnects."""
     logger.notice("Reconnected to Discord (session resumed)")
+    await _set_presence()
 
 
 def main():
@@ -1215,12 +1230,7 @@ def main():
     try:
         for feed in feeds:
             loop.create_task(background_check_feed(feed, loop))
-        if "login_token" in MAIN:
-            loop.run_until_complete(client.login(MAIN.get("login_token")))
-        else:
-            loop.run_until_complete(
-                client.login(MAIN.get("login_email"), MAIN.get("login_password"))
-            )
+        loop.run_until_complete(client.login(MAIN.get("login_token")))
         loop.run_until_complete(client.connect())
     except Exception:
         loop.run_until_complete(client.close())
