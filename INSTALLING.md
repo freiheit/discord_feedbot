@@ -38,10 +38,10 @@ running it via Docker (or other compatible container systems).
 
 # Requirements
 (see also requirements.txt)
-- Python 3.8+ (discord.py requires 3.8+. 3.9 is what I'm running it with)
+- Python 3.8+ (discord.py requires 3.8+)
 - sqlite3 -- Usually comes with python
 - [discord.py](https://github.com/Rapptz/discord.py)
-- [feedparser](https://pypi.python.org/pypi/feedparser)
+- [feedparser-rs](https://pypi.org/project/feedparser-rs/)
 - [html2text](https://pypi.python.org/pypi/html2text)
 - [in_place](https://pypi.org/project/in-place/) (only used by newfeed.py; otherwise optional)
 
@@ -56,31 +56,24 @@ Things to check:
 - `find /usr/share/zoneinfo/ -type f| xargs md5sum | grep $(md5sum /etc/localtime  | cut -d' ' -f1)`
 - `date +%Z` # careful, may give you a timezone only useful half of the year
 
-## It looks like it's working, but nothing posts, and logs say `too old; skipping` for everything.
-Double-check your timezone settings! If the timezone isn't right, and max_age
-is under 24 hours (86400), then it's possible for brand-new posts to look too
-old to post.
+## It looks like it's working, but nothing posts, and logs say `too old, skipping` for everything.
+The bot compares all dates in UTC. If your system clock is wrong, brand-new posts
+can appear too old to post when max_age is under 24 hours (86400).
 
-If it all looks right, try turning on debug in .ini. Then look for output like this:
+Set `debug = 4` in your .ini (VERBOSE level) and look for output like this:
 ```
-DEBUG:__main__:reddit:now:1467657389.0983927
-DEBUG:__main__:reddit:now:gmtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=18, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=0)
-DEBUG:__main__:reddit:now:localtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=11, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=1)
-DEBUG:__main__:reddit:timezone.localize(datetime.now()):2016-07-04 11:36:29.098784-07:00
-DEBUG:__main__:reddit:pubDate:Mon Jul 04 14:04:44 UTC 2016
-DEBUG:__main__:reddit:pubDate_parsed:2016-07-04 14:04:44+00:00
-DEBUG:__main__:reddit:pubDate_parsed.astimezome(timezone):2016-07-04 07:04:44-07:00
+VERBOSE:__main__:reddit:too old, skipping
+VERBOSE:__main__:reddit:now:now:1467657389.0983927
+VERBOSE:__main__:reddit:now:gmtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=18, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=0)
+VERBOSE:__main__:reddit:now:localtime:time.struct_time(tm_year=2016, tm_mon=7, tm_mday=4, tm_hour=11, tm_min=36, tm_sec=29, tm_wday=0, tm_yday=186, tm_isdst=1)
+VERBOSE:__main__:reddit:pubDate:datetime.datetime(2016, 7, 4, 14, 4, 44, tzinfo=datetime.timezone.utc)
 ```
 
-If `now:localtime` doesn't look like your current time and/or `now:gmtime`
-doesn't look like current UTC time, that's your problem.
-`now:gmtime` being off indicates your system clock is wrong.
-If `now:gmtime` is right, but `now:localtime` is not, you probably have the
-timezone set wrong in your .ini file.
+If `now:gmtime` doesn't look like current UTC time, your system clock is wrong.
+The `timezone` setting in the .ini file does not affect date comparison — all
+dates are normalized to UTC internally.
 
 Workarounds:
-- set timezone to "UTC" and also run the script with the `TZ` environment
-  variable set to `UTC`, in order to run this one program in UTC.
 - Set max_age to 86400 (24 hours) or higher.
   The max_age setting is mostly just there to keep the first run on a feed from
   spamming your channels. You can run once with output only to a test channel,
