@@ -472,7 +472,7 @@ async def maybe_send_typing(FEED, feed, channels):
             logger.verbose("%s:%s:sent typing", feed, channel["name"])
         except discord.errors.Forbidden:
             logger.exception(
-                "%s:%s:forbidden - is bot allowed in channel?", feed, channel
+                "%s:%s:forbidden - is bot allowed in channel?", feed, channel["name"]
             )
         except discord.errors.NotFound:
             logger.warning(
