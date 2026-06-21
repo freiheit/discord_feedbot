@@ -1018,10 +1018,6 @@ async def background_check_feed(feed, asyncioloop):
         # (but see list of except/finally stuff below)
         conn = None
         try:
-            # set current "game played" constantly so that it sticks around
-            gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
-            await client.change_presence(activity=discord.Game(name=gameplayed))
-
             logger.info(feed + ": processing feed")
 
             conn = get_sql_connection(config)
@@ -1180,8 +1176,15 @@ async def background_check_feed(feed, asyncioloop):
 
 
 @client.event
+async def _set_presence():
+    """Set the bot's 'game played' presence from config. Safe to call after every connect/resume."""
+    gameplayed = MAIN.get("gameplayed", "gitlab.com/ffreiheit/discord_feedbot")
+    await client.change_presence(activity=discord.Game(name=gameplayed))
+
+
+@client.event
 async def on_ready():
-    """Log connection details and set bot avatar on startup. Called by discord.py when the client is ready."""
+    """Log connection details, set avatar, and set presence on startup. Called by discord.py when the client is ready."""
     logger.notice(
         "Connected to Discord as %s (id=%s) on %d guild(s)",
         client.user.name,
@@ -1196,6 +1199,8 @@ async def on_ready():
             avatar = f.read()
         await client.user.edit(avatar=avatar)
 
+    await _set_presence()
+
 
 @client.event
 async def on_disconnect():
@@ -1205,8 +1210,9 @@ async def on_disconnect():
 
 @client.event
 async def on_resumed():
-    """Log session resumption. Called by discord.py when the gateway reconnects."""
+    """Log session resumption and restore presence. Called by discord.py when the gateway reconnects."""
     logger.notice("Reconnected to Discord (session resumed)")
+    await _set_presence()
 
 
 def main():
