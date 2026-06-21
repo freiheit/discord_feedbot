@@ -490,17 +490,21 @@ async def process_field(field, item, FEED, channel):
 
     logger.trace("%s:process_field:%s: checking regexes", FEED, field)
     stringmatch = re.match('^"(.+?)"$', field)
-    highlightmatch = re.match("^([*_~<]+)(.+?)([*_~>]+)$", field)
+    highlightmatch = re.match(
+        "^((?:[*_<]|~~|\\|\\|)+)(.+?)((?:[*_>]|~~|\\|\\|)+)$", field
+    )
+    headermatch = re.match(r"^(-?#+)\s*(.+)$", field)
     bigcodematch = re.match("^```(.+)```$", field)
+    quotematch = re.match(r"^>\s*(.+)$", field)
     codematch = re.match("^`(.+)`$", field)
-
-    tagmatch = re.match("^@(.+)$", field)  # new tag regex
-    dictmatch = re.match(r"^\[(.+)\](.+)\.(.+)$", field)  # new dict regex
+    tagmatch = re.match("^@(.+)$", field)
+    dictmatch = re.match(r"^\[(.+)\](.+)\.(.+)$", field)
 
     if stringmatch is not None:
         # Return an actual string literal from config:
         logger.trace("%s:process_field:%s:isString", FEED, field)
         return stringmatch.group(1)  # string from config
+
     elif highlightmatch is not None:
         logger.trace("%s:process_field:%s:isHighlight", FEED, field)
 
@@ -517,6 +521,19 @@ async def process_field(field, item, FEED, channel):
             logger.error("process_field:%s:no such field", field)
             return ""
 
+    elif headermatch is not None:
+        logger.trace("%s:process_field:%s:isHeader", FEED, field)
+        prefix = headermatch.group(1)
+        field = headermatch.group(2)
+        if item.get(field) is not None:
+            content = html.unescape(item[field])
+            content = re.sub("<[^<]+?>", "", content)
+            content = content.splitlines()[0].strip() if content.strip() else ""
+            return prefix + " " + content if content else ""
+        else:
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
     elif bigcodematch is not None:
         logger.trace("%s:process_field:%s:isCodeBlock", FEED, field)
 
@@ -524,6 +541,24 @@ async def process_field(field, item, FEED, channel):
         field = bigcodematch.group(1)
         if item.get(field) is not None:
             return "```\n%s\n```" % (html.unescape(item[field]))
+        else:
+            logger.error("process_field:%s:no such field", field)
+            return ""
+
+    elif quotematch is not None:
+        logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
+        field = quotematch.group(1)
+        if item.get(field) is not None:
+            htmlfixer = HTML2Text()
+            htmlfixer.ignore_links = True
+            htmlfixer.ignore_images = True
+            htmlfixer.ignore_emphasis = False
+            htmlfixer.body_width = 1000
+            htmlfixer.unicode_snob = True
+            htmlfixer.ul_item_mark = "-"
+            content = htmlfixer.handle(html.unescape(item[field]))
+            content = re.sub("<[^<]+?>", "", content).strip()
+            return "\n".join("> " + ln for ln in content.splitlines())
         else:
             logger.error("process_field:%s:no such field", field)
             return ""
