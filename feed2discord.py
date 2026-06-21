@@ -1024,8 +1024,6 @@ async def background_check_feed(feed, asyncioloop):
 
             logger.info(feed + ": processing feed")
 
-            db_path = config["MAIN"].get("db_path", "feed2discord.db")
-            logger.trace(feed + ":db_debug:db_path=" + db_path)
             conn = get_sql_connection(config)
             logger.trace(feed + ":db_debug:conn=" + type(conn).__name__)
 
