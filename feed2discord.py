@@ -35,7 +35,7 @@ from dateutil.tz import gettz
 from html2text import HTML2Text
 
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 
 TRACE_LEVEL = 5
 VERBOSE_LEVEL = 8
