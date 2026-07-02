@@ -34,9 +34,18 @@ def render_text_field(value):
 
 def print_rendered(entry_dict):
     for key, value in entry_dict.items():
-        if not isinstance(value, str) or not value.strip():
+        if isinstance(value, str):
+            text = value
+        elif isinstance(value, list):
+            # content-style list (Atom <content>, RSS <content:encoded>, JSON
+            # content_html): a list of dict-like objects each with a 'value'.
+            parts = [x["value"] for x in value if hasattr(x, "get") and x.get("value")]
+            text = "\n".join(parts) if parts else None
+        else:
+            text = None
+        if not text or not text.strip():
             continue
-        rendered = render_text_field(value)
+        rendered = render_text_field(text)
         truncated = len(rendered) > 500
         print(f"\n=== {key} ===")
         print(rendered[:500])

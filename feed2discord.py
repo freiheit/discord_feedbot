@@ -20,7 +20,7 @@ import html
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
@@ -35,7 +35,7 @@ from dateutil.tz import gettz
 from html2text import HTML2Text
 
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 
 TRACE_LEVEL = 5
 VERBOSE_LEVEL = 8
@@ -109,15 +109,23 @@ CREATE TABLE IF NOT EXISTS feed_info (
 SQL_CREATE_FEED_ITEMS_TBL = """
 CREATE TABLE IF NOT EXISTS feed_items (
     id text PRIMARY KEY,
-    published text
+    published text,
+    urls text
 )
 """
 
 # 10 years (3650 days). Kept this long because some feeds (e.g. frontierforums)
 # bump an item's "published" date when a reply is posted; retaining the id keeps
 # such items from being treated as new and re-sent once their row is deleted.
+ITEM_MAX_AGE_DAYS = 3650
+
+# Compare `published` directly against a precomputed ISO-8601 cutoff (bound at
+# call time) rather than wrapping the column in julianday(): a bare column `<`
+# comparison lets SQLite use the feed_items_published index instead of scanning.
+# Safe because every stored `published` is canonical UTC ISO-8601 (...+00:00),
+# which sorts lexicographically in chronological order.
 SQL_CLEAN_OLD_ITEMS = """
-DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 3650
+DELETE FROM feed_items WHERE published < ?
 """
 
 
@@ -346,7 +354,10 @@ def sql_maintenance(config):
     # Doing this cleanup at start time because some feeds
     # do contain very old items and we don't want to keep
     # re-evaluating them.
-    conn.execute(SQL_CLEAN_OLD_ITEMS)
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=ITEM_MAX_AGE_DAYS)
+    ).isoformat()
+    conn.execute(SQL_CLEAN_OLD_ITEMS, [cutoff])
 
     conn.commit()
     conn.close()
@@ -364,19 +375,47 @@ def migrate_db(conn):
     dead_cols = {"title", "url", "reposted"} & feed_items_cols
     if dead_cols:
         # ALTER TABLE DROP COLUMN requires SQLite 3.35+; use table-rebuild for
-        # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).
+        # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).  The new
+        # table carries the full current schema (incl. urls); copy urls across
+        # too if the old table happened to have it, so a rebuild never drops it.
         conn.execute(
-            "CREATE TABLE feed_items_new (id text PRIMARY KEY, published text)"
+            "CREATE TABLE feed_items_new "
+            "(id text PRIMARY KEY, published text, urls text)"
         )
-        conn.execute("INSERT INTO feed_items_new SELECT id, published FROM feed_items")
+        if "urls" in feed_items_cols:
+            conn.execute(
+                "INSERT INTO feed_items_new (id, published, urls) "
+                "SELECT id, published, urls FROM feed_items"
+            )
+        else:
+            conn.execute(
+                "INSERT INTO feed_items_new (id, published) "
+                "SELECT id, published FROM feed_items"
+            )
         conn.execute("DROP TABLE feed_items")
         conn.execute("ALTER TABLE feed_items_new RENAME TO feed_items")
+        feed_items_cols = {r[1] for r in conn.execute("PRAGMA table_info(feed_items)")}
         logger.notice(
             "migrate_db: removed unused columns from feed_items: %s", dead_cols
         )
 
+    if "urls" not in feed_items_cols:
+        # Stores the item's link(s) alongside its dedupe id so a row can be found
+        # and deleted by URL even when the id is opaque (e.g. reddit's t3_...).
+        conn.execute("ALTER TABLE feed_items ADD COLUMN urls text")
+        logger.notice("migrate_db: added urls column to feed_items")
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(published)"
+    )
+
+    # Index for locating a row by its stored url (to delete it and force a
+    # re-post).  NOCASE collation so the default case-insensitive LIKE can use it
+    # for prefix lookups ("urls LIKE 'https://.../1ult3jk/%'"), not just exact
+    # "urls = ?".  A leading-wildcard substring ("urls LIKE '%slug%'") still scans
+    # -- no B-tree can serve that -- but that scan is cheap at this table's size.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS feed_items_urls ON feed_items(urls COLLATE NOCASE)"
     )
 
     # Normalize any published dates that SQLite's julianday() can't parse
@@ -505,6 +544,45 @@ def _make_html2text():
 _h2t = _make_html2text()
 
 
+def _field_value(item, field):
+    """Return a field's raw value as a string, coalescing content lists.
+
+    feedparser maps Atom <content>, RSS <content:encoded>, and JSON Feed
+    content_html all to item['content'] -- a list of dict-like Content objects
+    (each with a 'value').  Join their values so such a field renders like any
+    ordinary HTML string field.  Returns None when there's nothing usable
+    (missing field, empty list, no 'value').  Called by the _field_* handlers.
+    """
+    value = item.get(field)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for x in value:
+            if isinstance(x, str) and x:
+                parts.append(x)
+            elif hasattr(x, "get") and x.get("value"):
+                parts.append(x["value"])
+        return "\n".join(parts) if parts else None
+    return None
+
+
+def _truncate_paragraphs(text, max_paras):
+    """Return the first max_paras blank-line-separated paragraphs of text.
+
+    max_paras <= 0 means no limit (return text unchanged).  Used to keep only the
+    lead of a long multi-paragraph body field (per-feed `max_paragraphs`).  Called
+    by the body _field_* handlers after HTML->markdown rendering, while paragraph
+    breaks are still doubled newlines (build_message squashes them afterward).
+    """
+    if max_paras <= 0:
+        return text
+    paras = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
+    return "\n\n".join(paras[:max_paras])
+
+
 def _field_string(m):
     """Return the literal string value from a "quoted" field spec. Called by process_field()."""
     return m.group(1)
@@ -513,10 +591,14 @@ def _field_string(m):
 def _field_highlight(m, item, FEED):
     """Return a field value wrapped in markup delimiters (bold, italic, spoiler, etc.). Called by process_field()."""
     begin, field, end = m.groups()
-    if item.get(field) is not None:
-        if field == "link":
-            return begin + urljoin(FEED.get("feed_url"), item[field]) + end
-        return begin + html.unescape(item[field]) + end
+    if field == "link":
+        if item.get("link") is not None:
+            return begin + urljoin(FEED.get("feed_url"), item["link"]) + end
+        logger.error("process_field:%s:no such field", field)
+        return ""
+    value = _field_value(item, field)
+    if value is not None:
+        return begin + html.unescape(value) + end
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -524,8 +606,9 @@ def _field_highlight(m, item, FEED):
 def _field_header(m, item):
     """Return a Markdown heading line (## / ### / etc.) from a field value. Called by process_field()."""
     prefix, field = m.group(1), m.group(2)
-    if item.get(field) is not None:
-        content = re.sub("<[^<]+?>", "", html.unescape(item[field]))
+    value = _field_value(item, field)
+    if value is not None:
+        content = re.sub("<[^<]+?>", "", html.unescape(value))
         content = content.splitlines()[0].strip() if content.strip() else ""
         return prefix + " " + content if content else ""
     logger.error("process_field:%s:no such field", field)
@@ -535,18 +618,21 @@ def _field_header(m, item):
 def _field_bigcode(m, item):
     """Return a field value wrapped in a triple-backtick code block. Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        return "```\n%s\n```" % html.unescape(item[field])
+    value = _field_value(item, field)
+    if value is not None:
+        return "```\n%s\n```" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
     return ""
 
 
-def _field_quote(m, item):
+def _field_quote(m, item, FEED):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        content = _h2t.handle(html.unescape(item[field]))
+    value = _field_value(item, field)
+    if value is not None:
+        content = _h2t.handle(html.unescape(value))
         content = re.sub("<[^<]+?>", "", content).strip()
+        content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
     return ""
@@ -555,8 +641,9 @@ def _field_quote(m, item):
 def _field_code(m, item):
     """Return a field value wrapped in backtick inline code. Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        return "`%s`" % html.unescape(item[field])
+    value = _field_value(item, field)
+    if value is not None:
+        return "`%s`" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -585,11 +672,16 @@ def _field_dict(m, item):
 
 def _field_plain(field, item, FEED):
     """Return a bare field value converted from HTML to Markdown. Called by process_field()."""
-    if item.get(field) is not None:
-        if field == "link":
-            return urljoin(FEED.get("feed_url"), item[field])
-        markdownfield = _h2t.handle(html.unescape(item[field]))
-        return re.sub("<[^<]+?>", "", markdownfield)
+    if field == "link":
+        if item.get("link") is not None:
+            return urljoin(FEED.get("feed_url"), item["link"])
+        logger.error("process_field:%s:no such field", field)
+        return ""
+    value = _field_value(item, field)
+    if value is not None:
+        markdownfield = _h2t.handle(html.unescape(value))
+        markdownfield = re.sub("<[^<]+?>", "", markdownfield)
+        return _truncate_paragraphs(markdownfield, FEED.getint("max_paragraphs", 0))
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -642,7 +734,7 @@ async def process_field(field, item, FEED, channel):
         return _field_bigcode(bigcodematch, item)
     elif quotematch is not None:
         logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
-        return _field_quote(quotematch, item)
+        return _field_quote(quotematch, item, FEED)
     elif codematch is not None:
         logger.trace("%s:process_field:%s:isCode", FEED, field)
         return _field_code(codematch, item)
@@ -657,8 +749,43 @@ async def process_field(field, item, FEED, channel):
         return _field_plain(field, item, FEED)
 
 
+# Discord's hard per-message limit is 2000 characters; keep some headroom.
+MESSAGE_CHUNK_LIMIT = 1900
+
+# Subtext (-#) markers added to multi-message posts so readers can see a message
+# was split.  Short enough that adding them to a chunk stays under the 2000 limit.
+CONTINUED_FROM = "-# ... continued from previous message"
+CONTINUING_NEXT = "-# continuing in next message ..."
+POST_TRUNCATED = "-# ... post truncated"
+
+
+def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
+    """Split text into <=limit-char chunks on paragraph/line/word boundaries.
+
+    Prefers a paragraph break, then a line break, then a space, hard-cutting only
+    as a last resort.  Returns a list of chunks (empty for empty text).  Called by
+    actually_send_message().
+    """
+    chunks = []
+    remaining = text.strip()
+    while len(remaining) > limit:
+        window = remaining[:limit]
+        split_at = window.rfind("\n\n")
+        if split_at < limit // 2:
+            split_at = window.rfind("\n")
+        if split_at < limit // 2:
+            split_at = window.rfind(" ")
+        if split_at <= 0:
+            split_at = limit
+        chunks.append(remaining[:split_at].rstrip())
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
 async def build_message(FEED, item, channel):
-    """Build the full Discord message string for an item (truncated to 1800 chars). Called by _process_item()."""
+    """Build the full Discord message string for an item. Called by _process_item()."""
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -675,8 +802,6 @@ async def build_message(FEED, item, channel):
     # squash newlines down to single ones, and do that last...
     message = re.sub("(\n)+", "\n", message)
 
-    if len(message) > 1800:
-        message = message[:1800] + "\n... post truncated ..."
     return message
 
 
@@ -691,7 +816,9 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 
 async def actually_send_message(channel, message, delay, FEED, feed):
-    """Sleep for delay seconds then send message to Discord, publishing if configured. Called via asyncio task by send_message_wrapper()."""
+    """Sleep for delay seconds then send message to Discord (splitting long
+    output into multiple messages), publishing if configured. Called via asyncio
+    task by send_message_wrapper()."""
     await maybe_send_typing(FEED, feed, [channel])
 
     logger.debug(
@@ -704,21 +831,64 @@ async def actually_send_message(channel, message, delay, FEED, feed):
     if delay > 0:
         await asyncio.sleep(delay)
 
-    logger.debug("%s:%s:actually sending message", feed, channel["name"])
-    msg = await channel["object"].send(message)
+    chunks = _split_message(message)
+    if not chunks:
+        logger.debug("%s:%s:empty message, nothing to send", feed, channel["name"])
+        return
 
-    # if publish=1, channel is news/announcement and we have manage_messsages,
-    # then "publish" so it goes to all servers
-    if (
+    # max_messages caps how many Discord messages one item may produce.  0 (the
+    # default) means unlimited; a positive value keeps the first N chunks and
+    # marks the last as truncated.  Per-feed and per-channel overridable.
+    max_messages = FEED.getint(
+        channel["name"] + ".max_messages", FEED.getint("max_messages", 0)
+    )
+    truncated = False
+    if max_messages > 0 and len(chunks) > max_messages:
+        chunks = chunks[:max_messages]
+        truncated = True
+
+    total = len(chunks)
+    publish = (
         config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1
         and channel["object"].is_news()
-    ):
-        try:
-            await msg.publish()
-        except BaseException:
-            logger.warning(feed + ": Could not publish message")
+    )
 
-    logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
+    logger.debug(
+        "%s:%s:actually sending message in %d part(s)", feed, channel["name"], total
+    )
+    for i, chunk in enumerate(chunks):
+        # Add subtext markers so readers can tell a post was split.
+        parts = []
+        if i > 0:
+            parts.append(CONTINUED_FROM)
+        parts.append(chunk)
+        if i < total - 1:
+            parts.append(CONTINUING_NEXT)
+        elif truncated:
+            parts.append(POST_TRUNCATED)
+        body = "\n".join(parts)
+
+        if i > 0:
+            # Small gap between parts so a burst doesn't trip Discord's rate limit.
+            await asyncio.sleep(1)
+        msg = await channel["object"].send(body)
+
+        # if publish=1, channel is news/announcement and we have manage_messages,
+        # then "publish" so it goes to all servers
+        if publish:
+            try:
+                await msg.publish()
+            except BaseException:
+                logger.warning(feed + ": Could not publish message")
+
+        logger.debug(
+            "%s:%s:message part %d/%d sent: %r",
+            feed,
+            channel["name"],
+            i + 1,
+            total,
+            body,
+        )
 
 
 def _resolve_channels(feed, FEED, config, client):
@@ -874,6 +1044,59 @@ def _get_item_id(item, feed):
     return None
 
 
+# A bare field name that looks like it holds a URL (link, url, permalink,
+# comments_url, feedburner_origlink, ...).  Used by _extract_item_urls.
+_RE_URLISH_NAME = re.compile(r"^[A-Za-z0-9_]*(?:link|url)[A-Za-z0-9_]*$", re.I)
+
+
+def _extract_item_urls(item, FEED):
+    """Return the item's URL(s), derived from the feed's configured `fields`.
+
+    A configured field contributes its value when the spec is <>-wrapped (the
+    Discord-preview-suppressing form, which in this bot always denotes a URL --
+    e.g. `<id>`, `<comments>`) or its bare name looks URL-ish (`link`, `url`).
+    Values are resolved against feed_url and kept only if they are real URLs, so
+    an opaque id (reddit's `t3_...`) is skipped while its `link` is stored.  The
+    result is joined into feed_items.urls purely so a row can be located and
+    deleted by URL to force re-processing.  Never raises -- returns [] on trouble.
+    """
+    urls = []
+    try:
+        feed_url = FEED.get("feed_url")
+        # Gather every configured field list: the feed default plus any
+        # per-channel `name.fields` override.  An item is stored once per feed,
+        # so we union all the field specs that could name its URL.
+        specs = []
+        for key in FEED:
+            if key == "fields" or key.endswith(".fields"):
+                specs.extend(FEED.get(key, "").split(","))
+        for spec in specs:
+            spec = spec.strip()
+            if not spec:
+                continue
+            match = _RE_HIGHLIGHT.match(spec)
+            if match is not None and "<" in match.group(1) and ">" in match.group(3):
+                field = match.group(2)  # <field> wrapper -> always a URL
+            elif _RE_URLISH_NAME.match(spec):
+                field = spec  # bare link/url-ish field name
+            else:
+                continue
+            value = item.get(field)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            value = value.strip()
+            # Skip anything that isn't actually a URL (e.g. an opaque id).
+            if "://" not in value and not value.startswith("/"):
+                continue
+            resolved = urljoin(feed_url, value)
+            if resolved not in urls:
+                urls.append(resolved)
+    except Exception:
+        logger.trace("could not extract item urls", exc_info=True)
+        return []
+    return urls
+
+
 async def _apply_channel_filter(channel, item, FEED, feed):
     """Return True if item passes the filter configured for this channel."""
     filter_field = FEED.get(
@@ -933,9 +1156,10 @@ async def _process_item(
     item, itemid, pubdate, feed, FEED, channels, asyncioloop, conn, max_age
 ):
     """Mark item seen, check age, and send to each channel that passes its filter."""
+    urls = _extract_item_urls(item, FEED)
     conn.execute(
-        "INSERT INTO feed_items (id,published) VALUES (?,?)",
-        [itemid, pubdate.isoformat()],
+        "INSERT INTO feed_items (id,published,urls) VALUES (?,?,?)",
+        [itemid, pubdate.isoformat(), " ".join(urls) if urls else None],
     )
     time_since_published = datetime.now(timezone.utc) - pubdate
     logger.trace(
