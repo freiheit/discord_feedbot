@@ -109,7 +109,8 @@ CREATE TABLE IF NOT EXISTS feed_info (
 SQL_CREATE_FEED_ITEMS_TBL = """
 CREATE TABLE IF NOT EXISTS feed_items (
     id text PRIMARY KEY,
-    published text
+    published text,
+    urls text
 )
 """
 
@@ -364,19 +365,47 @@ def migrate_db(conn):
     dead_cols = {"title", "url", "reposted"} & feed_items_cols
     if dead_cols:
         # ALTER TABLE DROP COLUMN requires SQLite 3.35+; use table-rebuild for
-        # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).
+        # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).  The new
+        # table carries the full current schema (incl. urls); copy urls across
+        # too if the old table happened to have it, so a rebuild never drops it.
         conn.execute(
-            "CREATE TABLE feed_items_new (id text PRIMARY KEY, published text)"
+            "CREATE TABLE feed_items_new "
+            "(id text PRIMARY KEY, published text, urls text)"
         )
-        conn.execute("INSERT INTO feed_items_new SELECT id, published FROM feed_items")
+        if "urls" in feed_items_cols:
+            conn.execute(
+                "INSERT INTO feed_items_new (id, published, urls) "
+                "SELECT id, published, urls FROM feed_items"
+            )
+        else:
+            conn.execute(
+                "INSERT INTO feed_items_new (id, published) "
+                "SELECT id, published FROM feed_items"
+            )
         conn.execute("DROP TABLE feed_items")
         conn.execute("ALTER TABLE feed_items_new RENAME TO feed_items")
+        feed_items_cols = {r[1] for r in conn.execute("PRAGMA table_info(feed_items)")}
         logger.notice(
             "migrate_db: removed unused columns from feed_items: %s", dead_cols
         )
 
+    if "urls" not in feed_items_cols:
+        # Stores the item's link(s) alongside its dedupe id so a row can be found
+        # and deleted by URL even when the id is opaque (e.g. reddit's t3_...).
+        conn.execute("ALTER TABLE feed_items ADD COLUMN urls text")
+        logger.notice("migrate_db: added urls column to feed_items")
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(published)"
+    )
+
+    # Index for locating a row by its stored url (to delete it and force a
+    # re-post).  NOCASE collation so the default case-insensitive LIKE can use it
+    # for prefix lookups ("urls LIKE 'https://.../1ult3jk/%'"), not just exact
+    # "urls = ?".  A leading-wildcard substring ("urls LIKE '%slug%'") still scans
+    # -- no B-tree can serve that -- but that scan is cheap at this table's size.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS feed_items_urls ON feed_items(urls COLLATE NOCASE)"
     )
 
     # Normalize any published dates that SQLite's julianday() can't parse
@@ -1005,6 +1034,59 @@ def _get_item_id(item, feed):
     return None
 
 
+# A bare field name that looks like it holds a URL (link, url, permalink,
+# comments_url, feedburner_origlink, ...).  Used by _extract_item_urls.
+_RE_URLISH_NAME = re.compile(r"^[A-Za-z0-9_]*(?:link|url)[A-Za-z0-9_]*$", re.I)
+
+
+def _extract_item_urls(item, FEED):
+    """Return the item's URL(s), derived from the feed's configured `fields`.
+
+    A configured field contributes its value when the spec is <>-wrapped (the
+    Discord-preview-suppressing form, which in this bot always denotes a URL --
+    e.g. `<id>`, `<comments>`) or its bare name looks URL-ish (`link`, `url`).
+    Values are resolved against feed_url and kept only if they are real URLs, so
+    an opaque id (reddit's `t3_...`) is skipped while its `link` is stored.  The
+    result is joined into feed_items.urls purely so a row can be located and
+    deleted by URL to force re-processing.  Never raises -- returns [] on trouble.
+    """
+    urls = []
+    try:
+        feed_url = FEED.get("feed_url")
+        # Gather every configured field list: the feed default plus any
+        # per-channel `name.fields` override.  An item is stored once per feed,
+        # so we union all the field specs that could name its URL.
+        specs = []
+        for key in FEED:
+            if key == "fields" or key.endswith(".fields"):
+                specs.extend(FEED.get(key, "").split(","))
+        for spec in specs:
+            spec = spec.strip()
+            if not spec:
+                continue
+            match = _RE_HIGHLIGHT.match(spec)
+            if match is not None and "<" in match.group(1) and ">" in match.group(3):
+                field = match.group(2)  # <field> wrapper -> always a URL
+            elif _RE_URLISH_NAME.match(spec):
+                field = spec  # bare link/url-ish field name
+            else:
+                continue
+            value = item.get(field)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            value = value.strip()
+            # Skip anything that isn't actually a URL (e.g. an opaque id).
+            if "://" not in value and not value.startswith("/"):
+                continue
+            resolved = urljoin(feed_url, value)
+            if resolved not in urls:
+                urls.append(resolved)
+    except Exception:
+        logger.trace("could not extract item urls", exc_info=True)
+        return []
+    return urls
+
+
 async def _apply_channel_filter(channel, item, FEED, feed):
     """Return True if item passes the filter configured for this channel."""
     filter_field = FEED.get(
@@ -1064,9 +1146,10 @@ async def _process_item(
     item, itemid, pubdate, feed, FEED, channels, asyncioloop, conn, max_age
 ):
     """Mark item seen, check age, and send to each channel that passes its filter."""
+    urls = _extract_item_urls(item, FEED)
     conn.execute(
-        "INSERT INTO feed_items (id,published) VALUES (?,?)",
-        [itemid, pubdate.isoformat()],
+        "INSERT INTO feed_items (id,published,urls) VALUES (?,?,?)",
+        [itemid, pubdate.isoformat(), " ".join(urls) if urls else None],
     )
     time_since_published = datetime.now(timezone.utc) - pubdate
     logger.trace(
