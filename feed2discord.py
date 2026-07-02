@@ -505,6 +505,45 @@ def _make_html2text():
 _h2t = _make_html2text()
 
 
+def _field_value(item, field):
+    """Return a field's raw value as a string, coalescing content lists.
+
+    feedparser maps Atom <content>, RSS <content:encoded>, and JSON Feed
+    content_html all to item['content'] -- a list of dict-like Content objects
+    (each with a 'value').  Join their values so such a field renders like any
+    ordinary HTML string field.  Returns None when there's nothing usable
+    (missing field, empty list, no 'value').  Called by the _field_* handlers.
+    """
+    value = item.get(field)
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for x in value:
+            if isinstance(x, str) and x:
+                parts.append(x)
+            elif hasattr(x, "get") and x.get("value"):
+                parts.append(x["value"])
+        return "\n".join(parts) if parts else None
+    return None
+
+
+def _truncate_paragraphs(text, max_paras):
+    """Return the first max_paras blank-line-separated paragraphs of text.
+
+    max_paras <= 0 means no limit (return text unchanged).  Used to keep only the
+    lead of a long multi-paragraph body field (per-feed `max_paragraphs`).  Called
+    by the body _field_* handlers after HTML->markdown rendering, while paragraph
+    breaks are still doubled newlines (build_message squashes them afterward).
+    """
+    if max_paras <= 0:
+        return text
+    paras = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
+    return "\n\n".join(paras[:max_paras])
+
+
 def _field_string(m):
     """Return the literal string value from a "quoted" field spec. Called by process_field()."""
     return m.group(1)
@@ -513,10 +552,14 @@ def _field_string(m):
 def _field_highlight(m, item, FEED):
     """Return a field value wrapped in markup delimiters (bold, italic, spoiler, etc.). Called by process_field()."""
     begin, field, end = m.groups()
-    if item.get(field) is not None:
-        if field == "link":
-            return begin + urljoin(FEED.get("feed_url"), item[field]) + end
-        return begin + html.unescape(item[field]) + end
+    if field == "link":
+        if item.get("link") is not None:
+            return begin + urljoin(FEED.get("feed_url"), item["link"]) + end
+        logger.error("process_field:%s:no such field", field)
+        return ""
+    value = _field_value(item, field)
+    if value is not None:
+        return begin + html.unescape(value) + end
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -524,8 +567,9 @@ def _field_highlight(m, item, FEED):
 def _field_header(m, item):
     """Return a Markdown heading line (## / ### / etc.) from a field value. Called by process_field()."""
     prefix, field = m.group(1), m.group(2)
-    if item.get(field) is not None:
-        content = re.sub("<[^<]+?>", "", html.unescape(item[field]))
+    value = _field_value(item, field)
+    if value is not None:
+        content = re.sub("<[^<]+?>", "", html.unescape(value))
         content = content.splitlines()[0].strip() if content.strip() else ""
         return prefix + " " + content if content else ""
     logger.error("process_field:%s:no such field", field)
@@ -535,18 +579,21 @@ def _field_header(m, item):
 def _field_bigcode(m, item):
     """Return a field value wrapped in a triple-backtick code block. Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        return "```\n%s\n```" % html.unescape(item[field])
+    value = _field_value(item, field)
+    if value is not None:
+        return "```\n%s\n```" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
     return ""
 
 
-def _field_quote(m, item):
+def _field_quote(m, item, FEED):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        content = _h2t.handle(html.unescape(item[field]))
+    value = _field_value(item, field)
+    if value is not None:
+        content = _h2t.handle(html.unescape(value))
         content = re.sub("<[^<]+?>", "", content).strip()
+        content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
     return ""
@@ -555,8 +602,9 @@ def _field_quote(m, item):
 def _field_code(m, item):
     """Return a field value wrapped in backtick inline code. Called by process_field()."""
     field = m.group(1)
-    if item.get(field) is not None:
-        return "`%s`" % html.unescape(item[field])
+    value = _field_value(item, field)
+    if value is not None:
+        return "`%s`" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -585,11 +633,16 @@ def _field_dict(m, item):
 
 def _field_plain(field, item, FEED):
     """Return a bare field value converted from HTML to Markdown. Called by process_field()."""
-    if item.get(field) is not None:
-        if field == "link":
-            return urljoin(FEED.get("feed_url"), item[field])
-        markdownfield = _h2t.handle(html.unescape(item[field]))
-        return re.sub("<[^<]+?>", "", markdownfield)
+    if field == "link":
+        if item.get("link") is not None:
+            return urljoin(FEED.get("feed_url"), item["link"])
+        logger.error("process_field:%s:no such field", field)
+        return ""
+    value = _field_value(item, field)
+    if value is not None:
+        markdownfield = _h2t.handle(html.unescape(value))
+        markdownfield = re.sub("<[^<]+?>", "", markdownfield)
+        return _truncate_paragraphs(markdownfield, FEED.getint("max_paragraphs", 0))
     logger.error("process_field:%s:no such field", field)
     return ""
 
@@ -642,7 +695,7 @@ async def process_field(field, item, FEED, channel):
         return _field_bigcode(bigcodematch, item)
     elif quotematch is not None:
         logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
-        return _field_quote(quotematch, item)
+        return _field_quote(quotematch, item, FEED)
     elif codematch is not None:
         logger.trace("%s:process_field:%s:isCode", FEED, field)
         return _field_code(codematch, item)
@@ -657,8 +710,43 @@ async def process_field(field, item, FEED, channel):
         return _field_plain(field, item, FEED)
 
 
+# Discord's hard per-message limit is 2000 characters; keep some headroom.
+MESSAGE_CHUNK_LIMIT = 1900
+
+# Subtext (-#) markers added to multi-message posts so readers can see a message
+# was split.  Short enough that adding them to a chunk stays under the 2000 limit.
+CONTINUED_FROM = "-# ... continued from previous message"
+CONTINUING_NEXT = "-# continuing in next message ..."
+POST_TRUNCATED = "-# ... post truncated"
+
+
+def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
+    """Split text into <=limit-char chunks on paragraph/line/word boundaries.
+
+    Prefers a paragraph break, then a line break, then a space, hard-cutting only
+    as a last resort.  Returns a list of chunks (empty for empty text).  Called by
+    actually_send_message().
+    """
+    chunks = []
+    remaining = text.strip()
+    while len(remaining) > limit:
+        window = remaining[:limit]
+        split_at = window.rfind("\n\n")
+        if split_at < limit // 2:
+            split_at = window.rfind("\n")
+        if split_at < limit // 2:
+            split_at = window.rfind(" ")
+        if split_at <= 0:
+            split_at = limit
+        chunks.append(remaining[:split_at].rstrip())
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
 async def build_message(FEED, item, channel):
-    """Build the full Discord message string for an item (truncated to 1800 chars). Called by _process_item()."""
+    """Build the full Discord message string for an item. Called by _process_item()."""
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -675,8 +763,6 @@ async def build_message(FEED, item, channel):
     # squash newlines down to single ones, and do that last...
     message = re.sub("(\n)+", "\n", message)
 
-    if len(message) > 1800:
-        message = message[:1800] + "\n... post truncated ..."
     return message
 
 
@@ -691,7 +777,9 @@ async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message
 
 
 async def actually_send_message(channel, message, delay, FEED, feed):
-    """Sleep for delay seconds then send message to Discord, publishing if configured. Called via asyncio task by send_message_wrapper()."""
+    """Sleep for delay seconds then send message to Discord (splitting long
+    output into multiple messages), publishing if configured. Called via asyncio
+    task by send_message_wrapper()."""
     await maybe_send_typing(FEED, feed, [channel])
 
     logger.debug(
@@ -704,21 +792,64 @@ async def actually_send_message(channel, message, delay, FEED, feed):
     if delay > 0:
         await asyncio.sleep(delay)
 
-    logger.debug("%s:%s:actually sending message", feed, channel["name"])
-    msg = await channel["object"].send(message)
+    chunks = _split_message(message)
+    if not chunks:
+        logger.debug("%s:%s:empty message, nothing to send", feed, channel["name"])
+        return
 
-    # if publish=1, channel is news/announcement and we have manage_messsages,
-    # then "publish" so it goes to all servers
-    if (
+    # max_messages caps how many Discord messages one item may produce.  0 (the
+    # default) means unlimited; a positive value keeps the first N chunks and
+    # marks the last as truncated.  Per-feed and per-channel overridable.
+    max_messages = FEED.getint(
+        channel["name"] + ".max_messages", FEED.getint("max_messages", 0)
+    )
+    truncated = False
+    if max_messages > 0 and len(chunks) > max_messages:
+        chunks = chunks[:max_messages]
+        truncated = True
+
+    total = len(chunks)
+    publish = (
         config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1
         and channel["object"].is_news()
-    ):
-        try:
-            await msg.publish()
-        except BaseException:
-            logger.warning(feed + ": Could not publish message")
+    )
 
-    logger.debug("%s:%s:message sent: %r", feed, channel["name"], message)
+    logger.debug(
+        "%s:%s:actually sending message in %d part(s)", feed, channel["name"], total
+    )
+    for i, chunk in enumerate(chunks):
+        # Add subtext markers so readers can tell a post was split.
+        parts = []
+        if i > 0:
+            parts.append(CONTINUED_FROM)
+        parts.append(chunk)
+        if i < total - 1:
+            parts.append(CONTINUING_NEXT)
+        elif truncated:
+            parts.append(POST_TRUNCATED)
+        body = "\n".join(parts)
+
+        if i > 0:
+            # Small gap between parts so a burst doesn't trip Discord's rate limit.
+            await asyncio.sleep(1)
+        msg = await channel["object"].send(body)
+
+        # if publish=1, channel is news/announcement and we have manage_messages,
+        # then "publish" so it goes to all servers
+        if publish:
+            try:
+                await msg.publish()
+            except BaseException:
+                logger.warning(feed + ": Could not publish message")
+
+        logger.debug(
+            "%s:%s:message part %d/%d sent: %r",
+            feed,
+            channel["name"],
+            i + 1,
+            total,
+            body,
+        )
 
 
 def _resolve_channels(feed, FEED, config, client):

@@ -31,3 +31,18 @@ Yes. Add a string with their ping text to the fields. Like `<@12345678910112>`
 ## How do I figure out what fields are in a feed? or I get "no such field" errors.
 Use `show_sample_entry.py http://example.com/your_feed/thing.rss`. This
 dumps out the data structure that our feed parsing library produces.
+
+## How do I post the full article body, not just the summary?
+Use the `content` field. Atom `<content>`, RSS `<content:encoded>`, and JSON
+Feed `content_html` all parse into `content`, which renders like any other text
+field — e.g. `fields = ##title,link,content` (or `>content` to blockquote it).
+`show_sample_entry.py` now prints the `content` field so you can preview it.
+
+## The full content is longer than one Discord message. What happens?
+Long posts are automatically split across multiple messages (Discord caps a
+single message at 2000 characters). Split messages get a small subtext marker
+(`... continuing in next message` / `... continued from previous message`) so
+readers can tell. To cap how many messages one item may produce, set
+`max_messages` on the feed (or `channelname.max_messages` per channel). The
+default is `0` = unlimited; a positive value keeps that many messages and marks
+the last one `... post truncated`.
