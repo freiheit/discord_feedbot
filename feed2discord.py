@@ -20,7 +20,7 @@ import html
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
@@ -117,8 +117,15 @@ CREATE TABLE IF NOT EXISTS feed_items (
 # 10 years (3650 days). Kept this long because some feeds (e.g. frontierforums)
 # bump an item's "published" date when a reply is posted; retaining the id keeps
 # such items from being treated as new and re-sent once their row is deleted.
+ITEM_MAX_AGE_DAYS = 3650
+
+# Compare `published` directly against a precomputed ISO-8601 cutoff (bound at
+# call time) rather than wrapping the column in julianday(): a bare column `<`
+# comparison lets SQLite use the feed_items_published index instead of scanning.
+# Safe because every stored `published` is canonical UTC ISO-8601 (...+00:00),
+# which sorts lexicographically in chronological order.
 SQL_CLEAN_OLD_ITEMS = """
-DELETE FROM feed_items WHERE (julianday() - julianday(published)) > 3650
+DELETE FROM feed_items WHERE published < ?
 """
 
 
@@ -347,7 +354,10 @@ def sql_maintenance(config):
     # Doing this cleanup at start time because some feeds
     # do contain very old items and we don't want to keep
     # re-evaluating them.
-    conn.execute(SQL_CLEAN_OLD_ITEMS)
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=ITEM_MAX_AGE_DAYS)
+    ).isoformat()
+    conn.execute(SQL_CLEAN_OLD_ITEMS, [cutoff])
 
     conn.commit()
     conn.close()
