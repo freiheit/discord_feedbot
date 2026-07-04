@@ -34,7 +34,7 @@ from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
 from dateutil.tz import gettz
 
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 
 TRACE_LEVEL = 5
 VERBOSE_LEVEL = 8
