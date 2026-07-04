@@ -7,7 +7,6 @@
 
 import discord
 import feedparser_rs as feedparser  # Rust parser: matches feed2discord
-import html
 import in_place
 import os
 import re
@@ -15,7 +14,8 @@ import readline  # noqa: F401 -- imported for its side effect: input() line edit
 import requests
 import sys
 from configparser import ConfigParser
-from html2text import HTML2Text
+
+from feedfields import enumerate_fields
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
 # Fetch like feed2discord (real UA, gzip/deflate -- no brotli); feedparser_rs
@@ -23,29 +23,22 @@ USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freihe
 HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
 
-def render_text_field(value):
-    """Render a string field the same way feed2discord's process_field does."""
-    h = HTML2Text()
-    h.ignore_links = True
-    h.ignore_images = True
-    h.ignore_emphasis = False
-    h.body_width = 1000
-    h.unicode_snob = True
-    h.ul_item_mark = "-"
-    rendered = h.handle(html.unescape(value))
-    return re.sub("<[^<]+?>", "", rendered).strip()
+def print_rendered(entry):
+    """Print every reachable field as `=== token ===` + value (values truncated).
 
-
-def print_rendered(entry_dict):
-    for key, value in entry_dict.items():
-        if not isinstance(value, str) or not value.strip():
-            continue
-        rendered = render_text_field(value)
-        truncated = len(rendered) > 500
-        print(f"\n=== {key} ===")
-        print(rendered[:500])
-        if truncated:
+    token is exactly what to drop into the `fields =` line below (including dotted
+    names like `itunes.duration` / `enclosures.href`), so you can build the field
+    list from what you see here without reading the raw feed.
+    """
+    for token, value, in_list in enumerate_fields(entry):
+        print(f"\n=== {token} ===")
+        print(value[:500])
+        if len(value) > 500:
             print("... (truncated)")
+        if in_list:
+            print(
+                f"(list -- join all with e.g. [; ]{token}; delim can't contain a comma)"
+            )
 
 
 def fetch_feed(url):
@@ -93,10 +86,9 @@ else:
 
 feed_data = fetch_feed(feed_url)
 if feed_data.entries:
-    entry = dict(feed_data.entries[0])
     print("Latest feed item to help you figure out fields")
     print("----------")
-    print_rendered(entry)
+    print_rendered(feed_data.entries[0])
     print("----------")
     print(
         "Recommend: try posting links in a room somewhere to see if discord gives a nice preview"
@@ -115,7 +107,9 @@ print("Example (super-typical): ##title,-#published,<link>,>description")
 print(
     'Example (if title not great): "# Discord Status",##title,-#published,<link>,>summary'
 )
-print("Example (podcast): ##title,###subtitle,-#pubDate,link,itunes_duration")
+print(
+    "Example (podcast): ##title,###subtitle,-#published,itunes.duration,<enclosures.href>"
+)
 fields = input("Feed Fields: ")
 
 name = input("Feed and Channel Name: ")

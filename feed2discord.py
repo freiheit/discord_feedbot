@@ -28,12 +28,11 @@ from pprint import pformat
 import aiohttp
 import discord
 import feedparser_rs as feedparser  # Rust parser: faster + supports JSON Feed
+import feedfields
 
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
 from dateutil.tz import gettz
-from html2text import HTML2Text
-
 
 __version__ = "4.1.0"
 
@@ -528,45 +527,16 @@ async def maybe_send_typing(FEED, feed, channels):
             return
 
 
-def _make_html2text():
-    h = HTML2Text()
-    h.ignore_links = True
-    h.ignore_images = True
-    h.ignore_emphasis = False
-    h.body_width = 1000
-    h.unicode_snob = True
-    h.ul_item_mark = "-"
-    return h
-
-
-# Shared instance: HTML2Text.handle() resets its output buffer each call,
-# so the object is stateless between uses and safe to reuse.
-_h2t = _make_html2text()
-
-
 def _field_value(item, field):
-    """Return a field's raw value as a string, coalescing content lists.
+    """Return a field's value as a string (dotted names reach into sub-objects).
 
-    feedparser maps Atom <content>, RSS <content:encoded>, and JSON Feed
-    content_html all to item['content'] -- a list of dict-like Content objects
-    (each with a 'value').  Join their values so such a field renders like any
-    ordinary HTML string field.  Returns None when there's nothing usable
-    (missing field, empty list, no 'value').  Called by the _field_* handlers.
+    Thin wrapper over feedfields.resolve_field so the bot and the utility scripts
+    resolve field names identically: bare names (``summary``) pass through and
+    coalesce content lists; dotted names (``itunes.duration``, ``enclosures.href``)
+    walk into feedparser_rs's dict-like objects.  Returns None when unavailable.
+    Called by the _field_* handlers.
     """
-    value = item.get(field)
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        parts = []
-        for x in value:
-            if isinstance(x, str) and x:
-                parts.append(x)
-            elif hasattr(x, "get") and x.get("value"):
-                parts.append(x["value"])
-        return "\n".join(parts) if parts else None
-    return None
+    return feedfields.resolve_field(item, field)
 
 
 def _truncate_paragraphs(text, max_paras):
@@ -630,8 +600,7 @@ def _field_quote(m, item, FEED):
     field = m.group(1)
     value = _field_value(item, field)
     if value is not None:
-        content = _h2t.handle(html.unescape(value))
-        content = re.sub("<[^<]+?>", "", content).strip()
+        content = feedfields.render_text_field(value)
         content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
@@ -662,11 +631,29 @@ def _field_tag(m, item, channel):
 
 
 def _field_dict(m, item):
-    """Return values from a list-of-dicts field joined by the configured delimiter. Called by process_field()."""
+    """Return a sub-key from a dict-like field, joined by the configured delimiter.
+
+    ``[delim]field.key`` -- for a list base (enclosures, links, tags) join key
+    from every element with delim; for a single dict-like base (itunes) return
+    the one key.  Uses .get() so a missing key is skipped, not an error.
+    Called by process_field().
+    """
     delim, field, dictkey = m.group(1), m.group(2), m.group(3)
-    if item.get(field) is not None:
-        return delim.join([x[dictkey] for x in item[field]])
-    logger.error("process_field:%s:no such field", field)
+    obj = item.get(field)
+    if obj is None:
+        logger.error("process_field:%s:no such field", field)
+        return ""
+    if isinstance(obj, list):
+        parts = [
+            str(x.get(dictkey))
+            for x in obj
+            if hasattr(x, "get") and x.get(dictkey) is not None
+        ]
+        return delim.join(parts)
+    if hasattr(obj, "get"):
+        value = obj.get(dictkey)
+        return "" if value is None else str(value)
+    logger.error("process_field:%s:not a dict-like field", field)
     return ""
 
 
@@ -679,9 +666,8 @@ def _field_plain(field, item, FEED):
         return ""
     value = _field_value(item, field)
     if value is not None:
-        markdownfield = _h2t.handle(html.unescape(value))
-        markdownfield = re.sub("<[^<]+?>", "", markdownfield)
-        return _truncate_paragraphs(markdownfield, FEED.getint("max_paragraphs", 0))
+        rendered = feedfields.render_text_field(value)
+        return _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
     logger.error("process_field:%s:no such field", field)
     return ""
 
