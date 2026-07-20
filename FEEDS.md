@@ -67,3 +67,12 @@ readers can tell. To cap how many messages one item may produce, set
 `max_messages` on the feed (or `channelname.max_messages` per channel). The
 default is `0` = unlimited; a positive value keeps that many messages and marks
 the last one `... post truncated`.
+
+## In what order are new entries posted?
+Oldest first, newest last. When a poll finds several new entries (including on a
+feed's first run), they're sorted by their published date and sent in that order,
+one at a time, with a pause between each. The pause — `send_interval`, default 3
+seconds — keeps Discord from reordering a fast burst, so the order sent matches
+the order shown. Set `send_interval` on a feed (or `channelname.send_interval`
+per channel); `0` disables the pause. This is separate from `delay`, which just
+offsets when a channel's batch starts.

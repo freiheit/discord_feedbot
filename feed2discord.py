@@ -771,7 +771,7 @@ def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
 
 
 async def build_message(FEED, item, channel):
-    """Build the full Discord message string for an item. Called by _process_item()."""
+    """Build the full Discord message string for an item. Called by _collect_item_sends()."""
     message = ""
     fieldlist = FEED.get(
         channel["name"] + ".fields", FEED.get("fields", "id,description")
@@ -791,31 +791,43 @@ async def build_message(FEED, item, channel):
     return message
 
 
-async def send_message_wrapper(asyncioloop, FEED, feed, channel, client, message):
-    """Schedule actually_send_message as an asyncio task (with optional delay). Called by _process_item()."""
-    delay = FEED.getint(channel["name"] + ".delay", FEED.getint("delay", 0))
-    logger.debug(
-        feed + ":" + channel["name"] + ":scheduling message with delay of " + str(delay)
-    )
-    asyncioloop.create_task(actually_send_message(channel, message, delay, FEED, feed))
-    logger.debug(feed + ":" + channel["name"] + ":message scheduled")
+async def _send_channel_batches(sends_by_channel, feed, FEED):
+    """Send each channel's queued messages in chronological order.
+
+    sends_by_channel maps a channel name to a list of (channel, message) tuples
+    already ordered oldest-first.  Messages go out one at a time, awaited, with
+    send_interval seconds between consecutive messages in the same channel so the
+    order Discord shows matches the order sent.  The per-channel `delay` (if any)
+    is applied once as an initial offset before that channel's first message.
+    Channels are handled one after another.  Called by background_check_feed().
+    """
+    for channel_name, messages in sends_by_channel.items():
+        if not messages:
+            continue
+        delay = FEED.getint(channel_name + ".delay", FEED.getint("delay", 0))
+        interval = FEED.getint(
+            channel_name + ".send_interval", FEED.getint("send_interval", 3)
+        )
+        logger.debug(
+            "%s:%s:sending %d message(s), delay=%ds interval=%ds",
+            feed,
+            channel_name,
+            len(messages),
+            delay,
+            interval,
+        )
+        if delay > 0:
+            await asyncio.sleep(delay)
+        for i, (channel, message) in enumerate(messages):
+            if i > 0 and interval > 0:
+                await asyncio.sleep(interval)
+            await actually_send_message(channel, message, FEED, feed)
 
 
-async def actually_send_message(channel, message, delay, FEED, feed):
-    """Sleep for delay seconds then send message to Discord (splitting long
-    output into multiple messages), publishing if configured. Called via asyncio
-    task by send_message_wrapper()."""
+async def actually_send_message(channel, message, FEED, feed):
+    """Send one message to Discord, splitting long output into multiple messages
+    and publishing if configured. Called by _send_channel_batches()."""
     await maybe_send_typing(FEED, feed, [channel])
-
-    logger.debug(
-        "%s:%s:sleeping for %i seconds before sending message",
-        feed,
-        channel["name"],
-        delay,
-    )
-
-    if delay > 0:
-        await asyncio.sleep(delay)
 
     chunks = _split_message(message)
     if not chunks:
@@ -1138,10 +1150,16 @@ async def _apply_channel_filter(channel, item, FEED, feed):
     return True
 
 
-async def _process_item(
-    item, itemid, pubdate, feed, FEED, channels, asyncioloop, conn, max_age
+async def _collect_item_sends(
+    item, itemid, pubdate, feed, FEED, channels, conn, max_age
 ):
-    """Mark item seen, check age, and send to each channel that passes its filter."""
+    """Mark item seen and return the messages to send for it.
+
+    Inserts the item into feed_items (so it's never re-sent), then -- if it's
+    within max_age -- builds the message for each channel that passes its filter.
+    Returns a list of (channel, message) tuples (empty for stale/filtered items).
+    Does not send anything; the caller batches and paces the actual sends.
+    Called by background_check_feed()."""
     urls = _extract_item_urls(item, FEED)
     conn.execute(
         "INSERT INTO feed_items (id,published,urls) VALUES (?,?,?)",
@@ -1161,27 +1179,24 @@ async def _process_item(
         logger.verbose("%s:now:localtime:%s", feed, time.localtime())
         logger.verbose("%s:pubDate:%r", feed, pubdate)
         logger.verbose(item)
-        return
+        return []
     logger.info(feed + ":item:fresh and ready for parsing")
+    sends = []
     for channel in channels:
         if await _apply_channel_filter(channel, item, FEED, feed):
             logger.debug(feed + ":item:building message for " + channel["name"])
             message = await build_message(FEED, item, channel)
-            logger.info(
-                feed + ":item:sending message (eventually) to " + channel["name"]
-            )
-            await send_message_wrapper(
-                asyncioloop, FEED, feed, channel, client, message
-            )
+            sends.append((channel, message))
         else:
             logger.info(
                 feed
                 + ":item:skipping item due to not passing filter for "
                 + channel["name"]
             )
+    return sends
 
 
-async def background_check_feed(feed, asyncioloop):
+async def background_check_feed(feed):
     """Poll one feed forever: fetch, parse, dedupe, filter, and send new items. Called by main() via loop.create_task()."""
     # Try to wait until Discord client has connected, etc:
     await asyncio.sleep(5)
@@ -1288,21 +1303,17 @@ async def background_check_feed(feed, asyncioloop):
             _store_feed_cache(conn, http_response, new_hash, feed, feed_url)
             http_response.close()
 
-            # Process all of the entries in the feed
-            # Use reversed to start with end, which is usually oldest
+            # Collect the unseen entries with their parsed dates.  Iterate
+            # reversed(entries) -- usually oldest-first -- so the stable sort
+            # below keeps the feed's order for items that share a timestamp.
             logger.trace(feed + ":processing entries")
+            new_items = []
             for item in reversed(feed_data.entries):
                 itemid = _get_item_id(item, feed)
                 if not itemid:
                     continue
 
                 pubdate = await extract_best_item_date(item, TIMEZONE)
-                logger.trace(
-                    "%s:item:processing this entry:%s:%s",
-                    feed,
-                    itemid,
-                    pubdate.isoformat(),
-                )
                 logger.trace(feed + ":item:itemid:" + itemid)
                 logger.trace(feed + ":item:checking database history for this item")
                 if conn.execute(
@@ -1311,18 +1322,35 @@ async def background_check_feed(feed, asyncioloop):
                     logger.trace(feed + ":item:" + itemid + " seen before, skipping")
                     continue
 
+                new_items.append((pubdate, itemid, item))
+
+            # Post in chronological order: oldest first, newest last.  Sorting on
+            # the parsed pubdate (rather than trusting feed order) makes this hold
+            # even on the first run of a feed, or for feeds that aren't ordered.
+            new_items.sort(key=lambda entry: entry[0])
+
+            # Phase 1: mark every new item seen and build its per-channel
+            # messages, keyed by channel name and kept in chronological order.
+            sends_by_channel = {}
+            for pubdate, itemid, item in new_items:
                 logger.info(feed + ":item " + itemid + " unseen, processing:")
-                await _process_item(
-                    item,
-                    itemid,
-                    pubdate,
-                    feed,
-                    FEED,
-                    channels,
-                    asyncioloop,
-                    conn,
-                    max_age,
-                )
+                for channel, message in await _collect_item_sends(
+                    item, itemid, pubdate, feed, FEED, channels, conn, max_age
+                ):
+                    sends_by_channel.setdefault(channel["name"], []).append(
+                        (channel, message)
+                    )
+
+            # Persist the dedupe inserts and release the DB connection before the
+            # (potentially slow, paced) sending begins.  Clearing conn keeps the
+            # finally block from double-closing it.
+            conn.commit()
+            conn.close()
+            conn = None
+
+            # Phase 2: send each channel's batch oldest-first, spaced by
+            # send_interval so the sent order matches the visible order.
+            await _send_channel_batches(sends_by_channel, feed, FEED)
 
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
@@ -1439,7 +1467,7 @@ def main():
 
     try:
         for feed in feeds:
-            loop.create_task(background_check_feed(feed, loop))
+            loop.create_task(background_check_feed(feed))
         loop.run_until_complete(client.login(MAIN.get("login_token")))
         loop.run_until_complete(client.connect())
     except Exception:
