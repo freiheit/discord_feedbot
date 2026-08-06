@@ -5,5 +5,4 @@ feedparser-rs
 html2text
 in-place
 python-dateutil
-pytz
 requests

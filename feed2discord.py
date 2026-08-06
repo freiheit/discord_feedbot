@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import discord
@@ -128,8 +129,8 @@ DELETE FROM feed_items WHERE published < ?
 """
 
 
-if not sys.version_info[:2] >= (3, 6):
-    print("Error: requires python 3.6 or newer")
+if not sys.version_info[:2] >= (3, 9):
+    print("Error: requires python 3.9 or newer")
     exit(1)
 
 
@@ -304,17 +305,12 @@ def get_config():
 
 
 def get_timezone(config):
-    """Return a pytz timezone from the [MAIN] timezone setting. Called at module level."""
-    import pytz
-
+    """Return a zoneinfo timezone from the [MAIN] timezone setting. Called at module level."""
     tzstr = config["MAIN"].get("timezone", "utc")
-    # This has to work on both windows and unix
     try:
-        timezone = pytz.timezone(tzstr)
+        return ZoneInfo(tzstr)
     except Exception:
-        timezone = pytz.utc
-
-    return timezone
+        return timezone.utc
 
 
 def get_feeds_config(config):
@@ -484,7 +480,7 @@ async def extract_best_item_date(item, tzinfo):
                 # is assumed to be in the configured timezone, then converted.
                 date_obj = parse_datetime(item[date_field], tzinfos=TZINFOS)
                 if date_obj.tzinfo is None:
-                    date_obj = tzinfo.localize(date_obj)
+                    date_obj = date_obj.replace(tzinfo=tzinfo)
                 return date_obj.astimezone(timezone.utc)
             except Exception:
                 pass
