@@ -21,7 +21,6 @@ import html
 from argparse import ArgumentParser
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
-from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
 from zoneinfo import ZoneInfo
@@ -246,13 +245,6 @@ def get_config():
     config.read(config_paths)
 
     debug = config["MAIN"].getint("debug", 0)
-
-    if debug >= 5:
-        os.environ["PYTHONASYNCIODEBUG"] = "1"
-        # The AIO modules need to be reloaded because of the new env var
-        reload(asyncio)
-        reload(aiohttp)
-        reload(discord)
 
     if debug >= 5:
         log_level = TRACE_LEVEL
@@ -1454,6 +1446,11 @@ def main():
     # deprecated (and slated for removal) when called with no running loop.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    # asyncio debug mode (slow-callback warnings, unawaited-coroutine origins).
+    # Replaces the old PYTHONASYNCIODEBUG + module-reload hack, which set the
+    # env var after import and so never reliably took effect.
+    if MAIN.getint("debug", 0) >= 5:
+        loop.set_debug(True)
 
     feeds = get_feeds_config(config)
     logger.notice(
