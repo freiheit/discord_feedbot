@@ -456,7 +456,7 @@ client = discord.Client(
 typing_disabled = set()
 
 
-async def extract_best_item_date(item, tzinfo):
+def extract_best_item_date(item, tzinfo):
     """Return the best date for a feed item as a UTC-aware datetime, falling back to now. Called by background_check_feed()."""
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
@@ -653,7 +653,7 @@ _RE_TAG = re.compile(r"^@(.+)$")
 _RE_DICT = re.compile(r"^\[(.+)\](.+)\.(.+)$")
 
 
-async def process_field(field, item, FEED, channel):
+def process_field(field, item, FEED, channel):
     """Render one field spec to a string. Returns str. Called by build_message() and _apply_channel_filter()."""
     logger.trace("%s:process_field:%s: started", FEED, field)
 
@@ -741,7 +741,7 @@ def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
     return chunks
 
 
-async def build_message(FEED, item, channel):
+def build_message(FEED, item, channel):
     """Build the full Discord message string for an item. Called by _collect_item_sends()."""
     message = ""
     fieldlist = FEED.get(
@@ -750,7 +750,7 @@ async def build_message(FEED, item, channel):
     # Extract fields in order
     for field in fieldlist:
         logger.trace("feed:item:build_message:%s:added to message", field)
-        message += await process_field(field, item, FEED, channel) + "\n"
+        message += process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
     message = re.sub(r"(?<!>) +\n", "\n", message)
@@ -1066,7 +1066,7 @@ def _extract_item_urls(item, FEED):
     return urls
 
 
-async def _apply_channel_filter(channel, item, FEED, feed):
+def _apply_channel_filter(channel, item, FEED, feed):
     """Return True if item passes the filter configured for this channel."""
     filter_field = FEED.get(
         channel["name"] + ".filter_field",
@@ -1087,9 +1087,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + " field "
             + filter_field
         )
-        match = re.search(
-            regexpat, await process_field(filter_field, item, FEED, channel)
-        )
+        match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is None:
             logger.info(feed + ":item:failed filter for " + channel["name"])
             return False
@@ -1109,9 +1107,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + " field "
             + filter_field
         )
-        match = re.search(
-            regexpat, await process_field(filter_field, item, FEED, channel)
-        )
+        match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is not None:
             logger.info(feed + ":item:failed exclude filter for " + channel["name"])
             return False
@@ -1121,9 +1117,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
     return True
 
 
-async def _collect_item_sends(
-    item, itemid, pubdate, feed, FEED, channels, conn, max_age
-):
+def _collect_item_sends(item, itemid, pubdate, feed, FEED, channels, conn, max_age):
     """Mark item seen and return the messages to send for it.
 
     Inserts the item into feed_items (so it's never re-sent), then -- if it's
@@ -1154,9 +1148,9 @@ async def _collect_item_sends(
     logger.info(feed + ":item:fresh and ready for parsing")
     sends = []
     for channel in channels:
-        if await _apply_channel_filter(channel, item, FEED, feed):
+        if _apply_channel_filter(channel, item, FEED, feed):
             logger.debug(feed + ":item:building message for " + channel["name"])
-            message = await build_message(FEED, item, channel)
+            message = build_message(FEED, item, channel)
             sends.append((channel, message))
         else:
             logger.info(
@@ -1284,7 +1278,7 @@ async def background_check_feed(feed):
                 if not itemid:
                     continue
 
-                pubdate = await extract_best_item_date(item, TIMEZONE)
+                pubdate = extract_best_item_date(item, TIMEZONE)
                 logger.trace(feed + ":item:itemid:" + itemid)
                 logger.trace(feed + ":item:checking database history for this item")
                 if conn.execute(
@@ -1305,7 +1299,7 @@ async def background_check_feed(feed):
             sends_by_channel = {}
             for pubdate, itemid, item in new_items:
                 logger.info(feed + ":item " + itemid + " unseen, processing:")
-                for channel, message in await _collect_item_sends(
+                for channel, message in _collect_item_sends(
                     item, itemid, pubdate, feed, FEED, channels, conn, max_age
                 ):
                     sends_by_channel.setdefault(channel["name"], []).append(
