@@ -481,15 +481,10 @@ async def extract_best_item_date(item, tzinfo):
     return datetime.now(timezone.utc)
 
 
-async def should_send_typing(conf, feed_name):
-    """Return the effective send_typing setting (0 = off) for a feed. Called by maybe_send_typing()."""
-    global_send_typing = conf.getint("send_typing", 0)
-    return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
-
-
 async def maybe_send_typing(FEED, feed, channels):
     """Send a typing indicator to each channel if send_typing is enabled. Returns None. Called by background_check_feed() and actually_send_message()."""
-    if feed in typing_disabled or not await should_send_typing(FEED, feed):
+    send_typing = FEED.getint("%s.send_typing" % feed, FEED.getint("send_typing", 0))
+    if feed in typing_disabled or not send_typing:
         return
     for channel in channels:
         try:
