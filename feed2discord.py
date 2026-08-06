@@ -515,18 +515,6 @@ async def maybe_send_typing(FEED, feed, channels):
             return
 
 
-def _field_value(item, field):
-    """Return a field's value as a string (dotted names reach into sub-objects).
-
-    Thin wrapper over feedfields.resolve_field so the bot and the utility scripts
-    resolve field names identically: bare names (``summary``) pass through and
-    coalesce content lists; dotted names (``itunes.duration``, ``enclosures.href``)
-    walk into feedparser_rs's dict-like objects.  Returns None when unavailable.
-    Called by the _field_* handlers.
-    """
-    return feedfields.resolve_field(item, field)
-
-
 def _truncate_paragraphs(text, max_paras):
     """Return the first max_paras blank-line-separated paragraphs of text.
 
@@ -554,7 +542,7 @@ def _field_highlight(m, item, FEED):
             return begin + urljoin(FEED.get("feed_url"), item["link"]) + end
         logger.error("process_field:%s:no such field", field)
         return ""
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return begin + html.unescape(value) + end
     logger.error("process_field:%s:no such field", field)
@@ -564,7 +552,7 @@ def _field_highlight(m, item, FEED):
 def _field_header(m, item):
     """Return a Markdown heading line (## / ### / etc.) from a field value. Called by process_field()."""
     prefix, field = m.group(1), m.group(2)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         content = re.sub("<[^<]+?>", "", html.unescape(value))
         content = content.splitlines()[0].strip() if content.strip() else ""
@@ -576,7 +564,7 @@ def _field_header(m, item):
 def _field_bigcode(m, item):
     """Return a field value wrapped in a triple-backtick code block. Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return "```\n%s\n```" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
@@ -586,7 +574,7 @@ def _field_bigcode(m, item):
 def _field_quote(m, item, FEED):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         content = feedfields.render_text_field(value)
         content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
@@ -598,7 +586,7 @@ def _field_quote(m, item, FEED):
 def _field_code(m, item):
     """Return a field value wrapped in backtick inline code. Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return "`%s`" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
@@ -652,7 +640,7 @@ def _field_plain(field, item, FEED):
             return urljoin(FEED.get("feed_url"), item["link"])
         logger.error("process_field:%s:no such field", field)
         return ""
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         rendered = feedfields.render_text_field(value)
         return _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
