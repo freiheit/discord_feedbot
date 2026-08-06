@@ -2,10 +2,8 @@ aiohttp[speedups]
 brotlicffi
 discord.py
 feedparser-rs
-flake8
 html2text
 in-place
-pylint
 python-dateutil
 pytz
 requests
