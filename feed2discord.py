@@ -668,42 +668,32 @@ def process_field(field, item, FEED, channel):
             return ""
 
     logger.trace("%s:process_field:%s: checking regexes", FEED, field)
-    stringmatch = _RE_STRING.match(field)
-    highlightmatch = _RE_HIGHLIGHT.match(field)
-    headermatch = _RE_HEADER.match(field)
-    bigcodematch = _RE_BIGCODE.match(field)
-    quotematch = _RE_QUOTE.match(field)
-    codematch = _RE_CODE.match(field)
-    tagmatch = _RE_TAG.match(field)
-    dictmatch = _RE_DICT.match(field)
-
-    if stringmatch is not None:
+    if m := _RE_STRING.match(field):
         logger.trace("%s:process_field:%s:isString", FEED, field)
-        return _field_string(stringmatch)
-    elif highlightmatch is not None:
+        return _field_string(m)
+    if m := _RE_HIGHLIGHT.match(field):
         logger.trace("%s:process_field:%s:isHighlight", FEED, field)
-        return _field_highlight(highlightmatch, item, FEED)
-    elif headermatch is not None:
+        return _field_highlight(m, item, FEED)
+    if m := _RE_HEADER.match(field):
         logger.trace("%s:process_field:%s:isHeader", FEED, field)
-        return _field_header(headermatch, item)
-    elif bigcodematch is not None:
+        return _field_header(m, item)
+    if m := _RE_BIGCODE.match(field):
         logger.trace("%s:process_field:%s:isCodeBlock", FEED, field)
-        return _field_bigcode(bigcodematch, item)
-    elif quotematch is not None:
+        return _field_bigcode(m, item)
+    if m := _RE_QUOTE.match(field):
         logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
-        return _field_quote(quotematch, item, FEED)
-    elif codematch is not None:
+        return _field_quote(m, item, FEED)
+    if m := _RE_CODE.match(field):
         logger.trace("%s:process_field:%s:isCode", FEED, field)
-        return _field_code(codematch, item)
-    elif tagmatch is not None:
+        return _field_code(m, item)
+    if m := _RE_TAG.match(field):
         logger.trace("%s:process_field:%s:isTag", FEED, field)
-        return _field_tag(tagmatch, item, channel)
-    elif dictmatch is not None:
+        return _field_tag(m, item, channel)
+    if m := _RE_DICT.match(field):
         logger.trace("%s:process_field:%s:isDict", FEED, field)
-        return _field_dict(dictmatch, item)
-    else:
-        logger.trace("%s:process_field:%s:isPlain", FEED, field)
-        return _field_plain(field, item, FEED)
+        return _field_dict(m, item)
+    logger.trace("%s:process_field:%s:isPlain", FEED, field)
+    return _field_plain(field, item, FEED)
 
 
 # Discord's hard per-message limit is 2000 characters; keep some headroom.
