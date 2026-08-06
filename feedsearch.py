@@ -164,7 +164,7 @@ class LinkExtractor(HTMLParser):
             self._text = []
 
 
-def _parse_links(base, html):
+def _parse_links(html):
     p = LinkExtractor()
     try:
         p.feed(html)
@@ -175,13 +175,13 @@ def _parse_links(base, html):
 
 # --- Method 1: autodiscovery <link> tags -----------------------------------
 def method_autodiscovery(base, html):
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     return _validate_candidates(urljoin(base, h) for h in links.alt_links)
 
 
 # --- Method 2: feed-looking links/URLs in the page body --------------------
 def method_body_links(base, html, limit=20, stop_after=3):
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     cands = [
         urljoin(base, href)
         for href, text in links.anchors
@@ -232,7 +232,7 @@ def method_sitemap(url):
 def method_feed_page(base, html):
     p = urlparse(base)
     origin = "%s://%s" % (p.scheme, p.netloc)
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     pages = []
     # links in the page whose href/text suggests a feeds/subscribe page
     for href, text in links.anchors:
