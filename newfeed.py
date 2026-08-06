@@ -48,13 +48,13 @@ HOME_DIR = os.path.expanduser("~")
 AUTH_CONFIG_PATHS = [
     os.path.join(HOME_DIR, ".feed2discord.auth.ini"),
     os.path.join(BASE_DIR, "feed2discord.auth.ini"),
-    os.path.join("feed2discord.auth.ini"),
+    "feed2discord.auth.ini",
     os.path.join(HOME_DIR, ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join("feed2discord.local.ini"),
-    os.path.join("/etc/feed2discord.ini"),
+    "feed2discord.local.ini",
+    "/etc/feed2discord.ini",
     os.path.join(BASE_DIR, "feed2discord.ini"),
-    os.path.join("feed2discord.ini"),
+    "feed2discord.ini",
 ]
 config = ConfigParser()
 config_paths = []
