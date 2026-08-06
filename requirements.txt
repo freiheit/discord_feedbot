@@ -3,6 +3,5 @@ brotlicffi
 discord.py
 feedparser-rs
 html2text
-in-place
 python-dateutil
 requests
