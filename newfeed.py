@@ -10,17 +10,13 @@ import feedparser_rs as feedparser  # Rust parser: matches feed2discord
 import os
 import re
 import readline  # noqa: F401 -- imported for its side effect: input() line editing
-import requests
 import sys
 from configparser import ConfigParser
 from pathlib import Path
 
-from feedfields import enumerate_fields
+from feedfields import enumerate_fields, http_get
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
-# Fetch like feed2discord (real UA, gzip/deflate -- no brotli); feedparser_rs
-# parses content, not URLs.
-HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
 
 def print_rendered(entry):
@@ -42,8 +38,7 @@ def print_rendered(entry):
 
 
 def fetch_feed(url):
-    resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
-    return feedparser.parse(resp.content)
+    return feedparser.parse(http_get(url, USER_AGENT)[2])
 
 
 # Get login_token from config:

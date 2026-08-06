@@ -26,20 +26,17 @@ Usage: feedsearch.py [URL]   (prompts for the URL if not given)
 
 import re
 import sys
+import urllib.error
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import feedparser_rs as feedparser  # Rust parser: faster + native JSON Feed
-import requests
+
+from feedfields import http_get
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:feedsearch.py (by /u/freiheit)"
-# gzip/deflate only: some servers emit brotli we can't decode (see feed2discord)
-HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 TIMEOUT = 15
 MAX_CANDIDATES = 30  # politeness cap on how many URLs a single method validates
-
-session = requests.Session()
-session.headers.update(HEADERS)
 
 # Substrings that hint a link/URL is a feed (used by methods 2/4).
 FEED_HINT = re.compile(r"(feed|rss|atom|\.xml|\.rdf|format=rss|format=atom)", re.I)
@@ -48,13 +45,16 @@ _fetch_cache = {}
 
 
 def fetch(url):
-    """GET url (cached). Returns (status, final_url, content_bytes) or None."""
+    """GET url (cached). Returns (status, final_url, content_bytes, content_type) or None."""
     if url in _fetch_cache:
         return _fetch_cache[url]
     try:
-        r = session.get(url, timeout=TIMEOUT, allow_redirects=True)
-        result = (r.status_code, r.url, r.content, r.headers.get("Content-Type", ""))
-    except requests.RequestException:
+        result = http_get(url, USER_AGENT, timeout=TIMEOUT)
+    except urllib.error.HTTPError as e:
+        # Non-2xx: callers only need the status (body unused unless 200).
+        ctype = e.headers.get("Content-Type", "") if e.headers else ""
+        result = (e.code, e.geturl() or url, b"", ctype)
+    except (OSError, ValueError):  # network trouble, timeout, or a bogus URL
         result = None
     _fetch_cache[url] = result
     return result

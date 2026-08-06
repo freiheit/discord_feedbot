@@ -4,4 +4,3 @@ discord.py
 feedparser-rs
 html2text
 python-dateutil
-requests

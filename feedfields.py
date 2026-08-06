@@ -21,10 +21,36 @@ the discovery helpers (``show_sample_entry.py``, ``show_all_entries.py``,
 ``newfeed.py``) always agree on which fields exist and how they render.
 """
 
+import gzip
 import html
 import re
+import urllib.request
+import zlib
 
 from html2text import HTML2Text
+
+
+def http_get(url, user_agent, timeout=30):
+    """GET url the way feed2discord does (gzip/deflate accepted, no brotli).
+
+    Returns (status, final_url, body_bytes, content_type).  Decompresses the
+    body itself since urllib, unlike requests, doesn't.  Raises urllib.error /
+    OSError on network failure or non-2xx status; callers handle or crash.
+    """
+    req = urllib.request.Request(
+        url, headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read()
+        encoding = resp.headers.get("Content-Encoding", "").lower()
+        if encoding == "gzip":
+            body = gzip.decompress(body)
+        elif encoding == "deflate":
+            try:
+                body = zlib.decompress(body)
+            except zlib.error:  # some servers send raw deflate, no zlib header
+                body = zlib.decompress(body, -zlib.MAX_WBITS)
+        return (resp.status, resp.geturl(), body, resp.headers.get("Content-Type", ""))
 
 
 def make_html2text():
