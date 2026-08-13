@@ -33,7 +33,7 @@ import feedfields
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
 
-__version__ = "4.2.0"
+__version__ = "4.3.0"
 
 TRACE_LEVEL = 5
 VERBOSE_LEVEL = 8
