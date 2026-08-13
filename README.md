@@ -12,8 +12,6 @@ github.com/freiheit/discord_feedbot is a mirror and all others are forks.
 
 ![Feed Bot](avatars/avatar-angry-small.png)
 
-[[_TOC_]]
-
 Bot for taking in an RSS, Atom, or JSON feed and sharing it into a Discord channel.
 
 Designed to be very configurable.
@@ -25,30 +23,27 @@ Since this bot doesn't *react* to anything in channels or messages, you can
 have it sign into the same account as another bot, and externally it should
 appear to be a single bot.
 
+## Feedbot Discord
 
-# Elite: Dangerous related Discord?
-
-If your Discord server is related to Elite: Dangerous, you may be able to use
-my feedbot instance instead of running your own copy.
 Head to https://discord.gg/s97tH5Bsw6 and "Follow" the rooms you want.
 
-(I have some other feeds, but E:D is the most thoroughly covered)
+Originally this was mostly Elite: Dangerous, then expanded to feeds for other games I was playing and now has a mix of hundreds of feeds including news, linux, security, various tech things, etc etc.
 
+## Running it yourself
 
-# Installation / Initial Setup
+### Installation / Initial Setup
 
 See [INSTALLING.md](INSTALLING.md)
 
-
-# Adding feeds
+### Adding feeds
 
 See [FEEDS.md](FEEDS.md)
 
 
-# My configuration
-The configuration of my instance of feedbot (minus auth token) is here: https://gitlab.com/ffreiheit/feedbot-config
+### My configuration
+The configuration of my instance of feedbot (minus auth token) is here: https://github.com/freiheit/feedbot-config
 
-# Use as Library
+## Use as Library
 I have not tested at all, but I have tried to make it possible to plug this
 in as a library. Probably needs work. You'll need to replace your simple
 "client.run()" with the more complicated stuff inside the if __name__ block
@@ -66,25 +61,25 @@ be running alongside another bot using same account to appear as a single
 user.
 
 
-# Frequently Asked Questions (FAQ)
+## Frequently Asked Questions (FAQ)
 FAQ items are in
 [INSTALLING.md](INSTALLING.md) and
 [FEEDS.md](FEEDS.md)
 
-# Contributing
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Chat with me
+### Chat with me
 Come to https://discord.gg/s97tH5Bsw6 and talk in the #dev room.
 
-## Bug reports
+### Bug reports
 Preferred avenue for bug reports is an Issue filed at https://gitlab.com/ffreiheit/discord_feedbot/-/issues
 
-### Security Bugs
+#### Security Bugs
 Check the "confidential" checkbox when submitting an Issue at https://gitlab.com/ffreiheit/discord_feedbot/-/issues
 
-# Financial Support
+## Financial Support
 I have a very few costs associated with this project. (under $10/month)
 I'm happy to donate my time.
 But if you want to thank me financially:
