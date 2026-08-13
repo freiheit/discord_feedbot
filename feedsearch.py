@@ -26,20 +26,17 @@ Usage: feedsearch.py [URL]   (prompts for the URL if not given)
 
 import re
 import sys
+import urllib.error
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import feedparser_rs as feedparser  # Rust parser: faster + native JSON Feed
-import requests
+
+from feedfields import http_get
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:feedsearch.py (by /u/freiheit)"
-# gzip/deflate only: some servers emit brotli we can't decode (see feed2discord)
-HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 TIMEOUT = 15
 MAX_CANDIDATES = 30  # politeness cap on how many URLs a single method validates
-
-session = requests.Session()
-session.headers.update(HEADERS)
 
 # Substrings that hint a link/URL is a feed (used by methods 2/4).
 FEED_HINT = re.compile(r"(feed|rss|atom|\.xml|\.rdf|format=rss|format=atom)", re.I)
@@ -48,13 +45,16 @@ _fetch_cache = {}
 
 
 def fetch(url):
-    """GET url (cached). Returns (status, final_url, content_bytes) or None."""
+    """GET url (cached). Returns (status, final_url, content_bytes, content_type) or None."""
     if url in _fetch_cache:
         return _fetch_cache[url]
     try:
-        r = session.get(url, timeout=TIMEOUT, allow_redirects=True)
-        result = (r.status_code, r.url, r.content, r.headers.get("Content-Type", ""))
-    except requests.RequestException:
+        result = http_get(url, USER_AGENT, timeout=TIMEOUT)
+    except urllib.error.HTTPError as e:
+        # Non-2xx: callers only need the status (body unused unless 200).
+        ctype = e.headers.get("Content-Type", "") if e.headers else ""
+        result = (e.code, e.geturl() or url, b"", ctype)
+    except (OSError, ValueError):  # network trouble, timeout, or a bogus URL
         result = None
     _fetch_cache[url] = result
     return result
@@ -164,7 +164,7 @@ class LinkExtractor(HTMLParser):
             self._text = []
 
 
-def _parse_links(base, html):
+def _parse_links(html):
     p = LinkExtractor()
     try:
         p.feed(html)
@@ -175,13 +175,13 @@ def _parse_links(base, html):
 
 # --- Method 1: autodiscovery <link> tags -----------------------------------
 def method_autodiscovery(base, html):
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     return _validate_candidates(urljoin(base, h) for h in links.alt_links)
 
 
 # --- Method 2: feed-looking links/URLs in the page body --------------------
 def method_body_links(base, html, limit=20, stop_after=3):
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     cands = [
         urljoin(base, href)
         for href, text in links.anchors
@@ -232,7 +232,7 @@ def method_sitemap(url):
 def method_feed_page(base, html):
     p = urlparse(base)
     origin = "%s://%s" % (p.scheme, p.netloc)
-    links = _parse_links(base, html)
+    links = _parse_links(html)
     pages = []
     # links in the page whose href/text suggests a feeds/subscribe page
     for href, text in links.anchors:

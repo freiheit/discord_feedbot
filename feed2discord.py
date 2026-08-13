@@ -21,9 +21,9 @@ import html
 from argparse import ArgumentParser
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
-from importlib import reload
 from urllib.parse import urljoin
 from pprint import pformat
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import discord
@@ -128,8 +128,8 @@ DELETE FROM feed_items WHERE published < ?
 """
 
 
-if not sys.version_info[:2] >= (3, 6):
-    print("Error: requires python 3.6 or newer")
+if not sys.version_info[:2] >= (3, 9):
+    print("Error: requires python 3.9 or newer")
     exit(1)
 
 
@@ -143,16 +143,16 @@ HOME_DIR = os.path.expanduser("~")
 DEFAULT_CONFIG_PATHS = [
     os.path.join(HOME_DIR, ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join("feed2discord.local.ini"),
-    os.path.join("/etc/feed2discord.ini"),
+    "feed2discord.local.ini",
+    "/etc/feed2discord.ini",
     os.path.join(BASE_DIR, "feed2discord.ini"),
-    os.path.join("feed2discord.ini"),
+    "feed2discord.ini",
 ]
 
 DEFAULT_AUTH_CONFIG_PATHS = [
     os.path.join(HOME_DIR, ".feed2discord.auth.ini"),
     os.path.join(BASE_DIR, "feed2discord.auth.ini"),
-    os.path.join("feed2discord.auth.ini"),
+    "feed2discord.auth.ini",
 ]
 
 
@@ -247,13 +247,6 @@ def get_config():
     debug = config["MAIN"].getint("debug", 0)
 
     if debug >= 5:
-        os.environ["PYTHONASYNCIODEBUG"] = "1"
-        # The AIO modules need to be reloaded because of the new env var
-        reload(asyncio)
-        reload(aiohttp)
-        reload(discord)
-
-    if debug >= 5:
         log_level = TRACE_LEVEL
     elif debug >= 4:
         log_level = VERBOSE_LEVEL
@@ -304,17 +297,12 @@ def get_config():
 
 
 def get_timezone(config):
-    """Return a pytz timezone from the [MAIN] timezone setting. Called at module level."""
-    import pytz
-
+    """Return a zoneinfo timezone from the [MAIN] timezone setting. Called at module level."""
     tzstr = config["MAIN"].get("timezone", "utc")
-    # This has to work on both windows and unix
     try:
-        timezone = pytz.timezone(tzstr)
+        return ZoneInfo(tzstr)
     except Exception:
-        timezone = pytz.utc
-
-    return timezone
+        return timezone.utc
 
 
 def get_feeds_config(config):
@@ -468,7 +456,7 @@ client = discord.Client(
 typing_disabled = set()
 
 
-async def extract_best_item_date(item, tzinfo):
+def extract_best_item_date(item, tzinfo):
     """Return the best date for a feed item as a UTC-aware datetime, falling back to now. Called by background_check_feed()."""
     fields = ("published", "pubDate", "date", "created", "updated", "expiry")
     for date_field in fields:
@@ -484,7 +472,7 @@ async def extract_best_item_date(item, tzinfo):
                 # is assumed to be in the configured timezone, then converted.
                 date_obj = parse_datetime(item[date_field], tzinfos=TZINFOS)
                 if date_obj.tzinfo is None:
-                    date_obj = tzinfo.localize(date_obj)
+                    date_obj = date_obj.replace(tzinfo=tzinfo)
                 return date_obj.astimezone(timezone.utc)
             except Exception:
                 pass
@@ -493,15 +481,10 @@ async def extract_best_item_date(item, tzinfo):
     return datetime.now(timezone.utc)
 
 
-async def should_send_typing(conf, feed_name):
-    """Return the effective send_typing setting (0 = off) for a feed. Called by maybe_send_typing()."""
-    global_send_typing = conf.getint("send_typing", 0)
-    return conf.getint("%s.send_typing" % (feed_name), global_send_typing)
-
-
 async def maybe_send_typing(FEED, feed, channels):
     """Send a typing indicator to each channel if send_typing is enabled. Returns None. Called by background_check_feed() and actually_send_message()."""
-    if feed in typing_disabled or not await should_send_typing(FEED, feed):
+    send_typing = FEED.getint("%s.send_typing" % feed, FEED.getint("send_typing", 0))
+    if feed in typing_disabled or not send_typing:
         return
     for channel in channels:
         try:
@@ -525,18 +508,6 @@ async def maybe_send_typing(FEED, feed, channels):
                 feed,
             )
             return
-
-
-def _field_value(item, field):
-    """Return a field's value as a string (dotted names reach into sub-objects).
-
-    Thin wrapper over feedfields.resolve_field so the bot and the utility scripts
-    resolve field names identically: bare names (``summary``) pass through and
-    coalesce content lists; dotted names (``itunes.duration``, ``enclosures.href``)
-    walk into feedparser_rs's dict-like objects.  Returns None when unavailable.
-    Called by the _field_* handlers.
-    """
-    return feedfields.resolve_field(item, field)
 
 
 def _truncate_paragraphs(text, max_paras):
@@ -589,7 +560,7 @@ def _field_highlight(m, item, FEED):
             return begin + urljoin(FEED.get("feed_url"), item["link"]) + end
         logger.error("process_field:%s:no such field", field)
         return ""
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return begin + html.unescape(value) + end
     logger.error("process_field:%s:no such field", field)
@@ -599,7 +570,7 @@ def _field_highlight(m, item, FEED):
 def _field_header(m, item):
     """Return a Markdown heading line (## / ### / etc.) from a field value. Called by process_field()."""
     prefix, field = m.group(1), m.group(2)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         content = re.sub("<[^<]+?>", "", html.unescape(value))
         content = content.splitlines()[0].strip() if content.strip() else ""
@@ -611,7 +582,7 @@ def _field_header(m, item):
 def _field_bigcode(m, item):
     """Return a field value wrapped in a triple-backtick code block. Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return "```\n%s\n```" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
@@ -621,7 +592,7 @@ def _field_bigcode(m, item):
 def _field_quote(m, item, FEED):
     """Return a field's HTML-to-markdown content as Discord blockquote lines (> …). Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         value = feedfields.strip_html_elements(value, FEED.get("skip_elements", ""))
         content = feedfields.render_text_field(value)
@@ -637,7 +608,7 @@ def _field_quote(m, item, FEED):
 def _field_code(m, item):
     """Return a field value wrapped in backtick inline code. Called by process_field()."""
     field = m.group(1)
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         return "`%s`" % html.unescape(value)
     logger.error("process_field:%s:no such field", field)
@@ -691,7 +662,7 @@ def _field_plain(field, item, FEED):
             return urljoin(FEED.get("feed_url"), item["link"])
         logger.error("process_field:%s:no such field", field)
         return ""
-    value = _field_value(item, field)
+    value = feedfields.resolve_field(item, field)
     if value is not None:
         value = feedfields.strip_html_elements(value, FEED.get("skip_elements", ""))
         rendered = feedfields.render_text_field(value)
@@ -714,7 +685,7 @@ _RE_TAG = re.compile(r"^@(.+)$")
 _RE_DICT = re.compile(r"^\[(.+)\](.+)\.(.+)$")
 
 
-async def process_field(field, item, FEED, channel):
+def process_field(field, item, FEED, channel):
     """Render one field spec to a string. Returns str. Called by build_message() and _apply_channel_filter()."""
     logger.trace("%s:process_field:%s: started", FEED, field)
 
@@ -729,42 +700,32 @@ async def process_field(field, item, FEED, channel):
             return ""
 
     logger.trace("%s:process_field:%s: checking regexes", FEED, field)
-    stringmatch = _RE_STRING.match(field)
-    highlightmatch = _RE_HIGHLIGHT.match(field)
-    headermatch = _RE_HEADER.match(field)
-    bigcodematch = _RE_BIGCODE.match(field)
-    quotematch = _RE_QUOTE.match(field)
-    codematch = _RE_CODE.match(field)
-    tagmatch = _RE_TAG.match(field)
-    dictmatch = _RE_DICT.match(field)
-
-    if stringmatch is not None:
+    if m := _RE_STRING.match(field):
         logger.trace("%s:process_field:%s:isString", FEED, field)
-        return _field_string(stringmatch)
-    elif highlightmatch is not None:
+        return _field_string(m)
+    if m := _RE_HIGHLIGHT.match(field):
         logger.trace("%s:process_field:%s:isHighlight", FEED, field)
-        return _field_highlight(highlightmatch, item, FEED)
-    elif headermatch is not None:
+        return _field_highlight(m, item, FEED)
+    if m := _RE_HEADER.match(field):
         logger.trace("%s:process_field:%s:isHeader", FEED, field)
-        return _field_header(headermatch, item)
-    elif bigcodematch is not None:
+        return _field_header(m, item)
+    if m := _RE_BIGCODE.match(field):
         logger.trace("%s:process_field:%s:isCodeBlock", FEED, field)
-        return _field_bigcode(bigcodematch, item)
-    elif quotematch is not None:
+        return _field_bigcode(m, item)
+    if m := _RE_QUOTE.match(field):
         logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
-        return _field_quote(quotematch, item, FEED)
-    elif codematch is not None:
+        return _field_quote(m, item, FEED)
+    if m := _RE_CODE.match(field):
         logger.trace("%s:process_field:%s:isCode", FEED, field)
-        return _field_code(codematch, item)
-    elif tagmatch is not None:
+        return _field_code(m, item)
+    if m := _RE_TAG.match(field):
         logger.trace("%s:process_field:%s:isTag", FEED, field)
-        return _field_tag(tagmatch, item, channel)
-    elif dictmatch is not None:
+        return _field_tag(m, item, channel)
+    if m := _RE_DICT.match(field):
         logger.trace("%s:process_field:%s:isDict", FEED, field)
-        return _field_dict(dictmatch, item)
-    else:
-        logger.trace("%s:process_field:%s:isPlain", FEED, field)
-        return _field_plain(field, item, FEED)
+        return _field_dict(m, item)
+    logger.trace("%s:process_field:%s:isPlain", FEED, field)
+    return _field_plain(field, item, FEED)
 
 
 # Discord's hard per-message limit is 2000 characters; keep some headroom.
@@ -802,7 +763,7 @@ def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
     return chunks
 
 
-async def build_message(FEED, item, channel):
+def build_message(FEED, item, channel):
     """Build the full Discord message string for an item. Called by _collect_item_sends()."""
     message = ""
     fieldlist = FEED.get(
@@ -811,7 +772,7 @@ async def build_message(FEED, item, channel):
     # Extract fields in order
     for field in fieldlist:
         logger.trace("feed:item:build_message:%s:added to message", field)
-        message += await process_field(field, item, FEED, channel) + "\n"
+        message += process_field(field, item, FEED, channel) + "\n"
 
     # Naked spaces are terrible:
     message = re.sub(r"(?<!>) +\n", "\n", message)
@@ -1127,7 +1088,7 @@ def _extract_item_urls(item, FEED):
     return urls
 
 
-async def _apply_channel_filter(channel, item, FEED, feed):
+def _apply_channel_filter(channel, item, FEED, feed):
     """Return True if item passes the filter configured for this channel."""
     filter_field = FEED.get(
         channel["name"] + ".filter_field",
@@ -1148,9 +1109,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + " field "
             + filter_field
         )
-        match = re.search(
-            regexpat, await process_field(filter_field, item, FEED, channel)
-        )
+        match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is None:
             logger.info(feed + ":item:failed filter for " + channel["name"])
             return False
@@ -1170,9 +1129,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
             + " field "
             + filter_field
         )
-        match = re.search(
-            regexpat, await process_field(filter_field, item, FEED, channel)
-        )
+        match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is not None:
             logger.info(feed + ":item:failed exclude filter for " + channel["name"])
             return False
@@ -1182,9 +1139,7 @@ async def _apply_channel_filter(channel, item, FEED, feed):
     return True
 
 
-async def _collect_item_sends(
-    item, itemid, pubdate, feed, FEED, channels, conn, max_age
-):
+def _collect_item_sends(item, itemid, pubdate, feed, FEED, channels, conn, max_age):
     """Mark item seen and return the messages to send for it.
 
     Inserts the item into feed_items (so it's never re-sent), then -- if it's
@@ -1215,9 +1170,9 @@ async def _collect_item_sends(
     logger.info(feed + ":item:fresh and ready for parsing")
     sends = []
     for channel in channels:
-        if await _apply_channel_filter(channel, item, FEED, feed):
+        if _apply_channel_filter(channel, item, FEED, feed):
             logger.debug(feed + ":item:building message for " + channel["name"])
-            message = await build_message(FEED, item, channel)
+            message = build_message(FEED, item, channel)
             sends.append((channel, message))
         else:
             logger.info(
@@ -1345,7 +1300,7 @@ async def background_check_feed(feed):
                 if not itemid:
                     continue
 
-                pubdate = await extract_best_item_date(item, TIMEZONE)
+                pubdate = extract_best_item_date(item, TIMEZONE)
                 logger.trace(feed + ":item:itemid:" + itemid)
                 logger.trace(feed + ":item:checking database history for this item")
                 if conn.execute(
@@ -1366,7 +1321,7 @@ async def background_check_feed(feed):
             sends_by_channel = {}
             for pubdate, itemid, item in new_items:
                 logger.info(feed + ":item " + itemid + " unseen, processing:")
-                for channel, message in await _collect_item_sends(
+                for channel, message in _collect_item_sends(
                     item, itemid, pubdate, feed, FEED, channels, conn, max_age
                 ):
                     sends_by_channel.setdefault(channel["name"], []).append(
@@ -1490,6 +1445,11 @@ def main():
     # deprecated (and slated for removal) when called with no running loop.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    # asyncio debug mode (slow-callback warnings, unawaited-coroutine origins).
+    # Replaces the old PYTHONASYNCIODEBUG + module-reload hack, which set the
+    # env var after import and so never reliably took effect.
+    if MAIN.getint("debug", 0) >= 5:
+        loop.set_debug(True)
 
     feeds = get_feeds_config(config)
     logger.notice(

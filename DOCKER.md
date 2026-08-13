@@ -104,8 +104,8 @@ To determine whether feedbot is even running, consult the output from either `do
 
 The testing utilities (`show_all_entries.py` and `show_sample_entry.py`) are included inside of the image we [built](#build) earlier. You can access them using the following syntax:
 ```
-docker run --rm feedbot show_sample_entry.py https://github.com/freiheit/discord_feedbot/releases.atom
-docker run --rm feedbot show_all_entries.py https://github.com/freiheit/discord_feedbot/releases.atom
+docker run --rm feedbot python3 /usr/local/bin/show_sample_entry.py https://github.com/freiheit/discord_feedbot/releases.atom
+docker run --rm feedbot python3 /usr/local/bin/show_all_entries.py https://github.com/freiheit/discord_feedbot/releases.atom
 ```
 
 | Command | Explanation |
@@ -113,11 +113,11 @@ docker run --rm feedbot show_all_entries.py https://github.com/freiheit/discord_
 | `docker run` | Start a new instance of a docker container. |
 | `--rm` | Delete the container once it is done executing (since it is extremely short-lived and would only waste resources). |
 | `feedbot` | Construct the container from the image most recently tagged as `feedbot`. |
-| <ul><li>`show_sample_entry.py`</li><li>`show_all_entries.py`</li></ul> | The command to run inside of the container. |
+| <ul><li>`python3 /usr/local/bin/show_sample_entry.py`</li><li>`python3 /usr/local/bin/show_all_entries.py`</li></ul> | The command to run inside of the container. |
 | `https://github.com/freiheit/discord_feedbot/releases.atom` | Any parameters for the command provided above. For the included `show_X.py` tools, this is the URL of a feed to debug, such as the release feed for this project. |
 
-You can also directly spawn an ash shell inside of the contianer to take a peek around with the following, but this is ultimately not very useful in practice:
+You can also directly spawn a bash shell inside of the container to take a peek around with the following, but this is ultimately not very useful in practice:
 ```
-docker run --rm -it -e TZ='UTC' -v ~/dockerfeedbot:/home/feedbot feedbot ash
+docker run --rm -it -e TZ='UTC' -v ~/dockerfeedbot:/home/feedbot feedbot bash
 ```
 `-it` means run with an interactive terminal, and the rest should all be familiar to you by now.

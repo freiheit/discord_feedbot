@@ -7,20 +7,16 @@
 
 import discord
 import feedparser_rs as feedparser  # Rust parser: matches feed2discord
-import in_place
 import os
 import re
 import readline  # noqa: F401 -- imported for its side effect: input() line editing
-import requests
 import sys
 from configparser import ConfigParser
+from pathlib import Path
 
-from feedfields import enumerate_fields
+from feedfields import enumerate_fields, http_get
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
-# Fetch like feed2discord (real UA, gzip/deflate -- no brotli); feedparser_rs
-# parses content, not URLs.
-HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
 
 def print_rendered(entry):
@@ -42,8 +38,7 @@ def print_rendered(entry):
 
 
 def fetch_feed(url):
-    resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
-    return feedparser.parse(resp.content)
+    return feedparser.parse(http_get(url, USER_AGENT)[2])
 
 
 # Get login_token from config:
@@ -53,13 +48,13 @@ HOME_DIR = os.path.expanduser("~")
 AUTH_CONFIG_PATHS = [
     os.path.join(HOME_DIR, ".feed2discord.auth.ini"),
     os.path.join(BASE_DIR, "feed2discord.auth.ini"),
-    os.path.join("feed2discord.auth.ini"),
+    "feed2discord.auth.ini",
     os.path.join(HOME_DIR, ".feed2discord.ini"),
     os.path.join(BASE_DIR, "feed2discord.local.ini"),
-    os.path.join("feed2discord.local.ini"),
-    os.path.join("/etc/feed2discord.ini"),
+    "feed2discord.local.ini",
+    "/etc/feed2discord.ini",
     os.path.join(BASE_DIR, "feed2discord.ini"),
-    os.path.join("feed2discord.ini"),
+    "feed2discord.ini",
 ]
 config = ConfigParser()
 config_paths = []
@@ -152,15 +147,16 @@ print("Do those look good?")
 yesno = input("y/n: ")
 
 if yesno == "y" or yesno == "Y":
-    with in_place.InPlace("feed2discord.local.ini", backup_ext="~") as inifile:
-        for line in inifile:
-            if re.match(f"default *= *{default_room}", line):
-                inifile.write(room_slug)
-                inifile.write("\n")
-            inifile.write(line)
-        inifile.write("\n")
-        inifile.write(feed_slug)
-        inifile.write("\n\n")
+    ini = Path("feed2discord.local.ini")
+    original = ini.read_text()
+    Path("feed2discord.local.ini~").write_text(original)  # backup
+    out = []
+    for line in original.splitlines(keepends=True):
+        if re.match(f"default *= *{default_room}", line):
+            out.append(room_slug + "\n")
+        out.append(line)
+    out.append("\n" + feed_slug + "\n\n")
+    ini.write_text("".join(out))
     print("Done!")
     print("Restart feedbot to activate")
 else:

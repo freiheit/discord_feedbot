@@ -6,16 +6,12 @@
 import sys
 
 import feedparser_rs as feedparser  # Rust parser: matches feed2discord
-import requests
 
-from feedfields import enumerate_fields
+from feedfields import enumerate_fields, http_get
 
 USER_AGENT = (
     "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
 )
-# Fetch the same way feed2discord does (real UA, gzip/deflate -- no brotli, which
-# some servers emit undecodably).  feedparser_rs.parse() takes content, not a URL.
-HEADERS = {"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
 
 def print_rendered(entry):
@@ -35,8 +31,7 @@ def print_rendered(entry):
 
 
 def fetch_feed(url):
-    resp = requests.get(url, headers=HEADERS, timeout=30, allow_redirects=True)
-    return feedparser.parse(resp.content)
+    return feedparser.parse(http_get(url, USER_AGENT)[2])
 
 
 # 0 is command itself:
