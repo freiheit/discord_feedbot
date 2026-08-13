@@ -524,6 +524,29 @@ def _truncate_paragraphs(text, max_paras):
     return "\n\n".join(paras[:max_paras])
 
 
+# A paragraph that is only a horizontal rule -- html2text renders <hr> as "* * *".
+_RE_RULE_ONLY = re.compile(r"[*\-_ ]{3,}")
+
+
+def _trim_leading_noise(text):
+    """Drop leading blank or horizontal-rule-only paragraphs from rendered text.
+
+    After HTML->markdown rendering a body can begin with content-free cruft: an
+    image paragraph renders empty and an <hr> renders as ``* * *``.  Such leading
+    paragraphs are always noise, so they're skipped (no per-feed config) up to the
+    first paragraph with real content.  Interior rules and separators are kept.
+    Called by the body _field_* handlers before `_truncate_paragraphs`.
+    """
+    paras = re.split(r"\n\s*\n", text)
+    i = 0
+    while i < len(paras):
+        stripped = paras[i].strip()
+        if stripped and not _RE_RULE_ONLY.fullmatch(stripped):
+            break
+        i += 1
+    return "\n\n".join(paras[i:])
+
+
 def _field_string(m):
     """Return the literal string value from a "quoted" field spec. Called by process_field()."""
     return m.group(1)
@@ -571,8 +594,12 @@ def _field_quote(m, item, FEED):
     field = m.group(1)
     value = feedfields.resolve_field(item, field)
     if value is not None:
+        value = feedfields.strip_html_elements(value, FEED.get("skip_elements", ""))
         content = feedfields.render_text_field(value)
+        content = _trim_leading_noise(content)
         content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
+        if FEED.getboolean("wrap_urls", True):
+            content = feedfields.wrap_bare_urls(content)
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
     return ""
@@ -637,8 +664,13 @@ def _field_plain(field, item, FEED):
         return ""
     value = feedfields.resolve_field(item, field)
     if value is not None:
+        value = feedfields.strip_html_elements(value, FEED.get("skip_elements", ""))
         rendered = feedfields.render_text_field(value)
-        return _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
+        rendered = _trim_leading_noise(rendered)
+        rendered = _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
+        if FEED.getboolean("wrap_urls", True):
+            rendered = feedfields.wrap_bare_urls(rendered)
+        return rendered
     logger.error("process_field:%s:no such field", field)
     return ""
 

@@ -26,6 +26,7 @@ import html
 import re
 import urllib.request
 import zlib
+from html.parser import HTMLParser
 
 from html2text import HTML2Text
 
@@ -137,6 +138,187 @@ def render_text_field(value):
         return unescaped
     rendered = _h2t.handle(unescaped)
     return re.sub("<[^<]+?>", "", rendered).strip()
+
+
+# HTML elements that never have a closing tag -- cut as a single tag, not a block.
+_VOID_TAGS = frozenset(
+    (
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    )
+)
+
+# One skip_elements selector: optional tag, optional .class, optional #id --
+# "div.away-mode", ".footer", "hr", "aside#note". At least one part required.
+_SELECTOR_RE = re.compile(r"^([A-Za-z0-9]+)?(?:\.([\w-]+))?(?:#([\w-]+))?$")
+
+
+def _parse_selectors(spec):
+    """Parse a comma-separated skip_elements spec into (tag, class, id) tuples.
+
+    Each selector is ``tag``, ``.class``, ``tag.class``, ``#id``, or ``tag#id``.
+    Tag names are lower-cased (HTML tags are case-insensitive); unparseable
+    tokens are skipped.  Returns [] for an empty/blank spec.
+    """
+    selectors = []
+    for token in spec.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        m = _SELECTOR_RE.match(token)
+        if not m:
+            continue
+        tag, cls, ident = m.groups()
+        if tag or cls or ident:
+            selectors.append((tag.lower() if tag else None, cls, ident))
+    return selectors
+
+
+class _ElementStripper(HTMLParser):
+    """Record byte ranges of elements matching any selector, for deletion.
+
+    Collects ``(start, end)`` offsets into the *original* HTML rather than
+    rebuilding it, so every non-matching byte is preserved verbatim (rebuilding
+    would re-escape attributes and corrupt things like ``&e=2`` in URLs).  A
+    matched block element is removed through its *matching* close tag (depth
+    counted so a nested same-name tag doesn't end it early); a matched void
+    element (``hr``, ``img``, ...) is removed as its single tag.
+    """
+
+    def __init__(self, raw, selectors):
+        super().__init__(convert_charrefs=False)
+        self.raw = raw
+        self.selectors = selectors
+        self.cuts = []
+        self._skip_tag = None  # tag name of the block currently being skipped
+        self._depth = 0  # open count of that tag, for nesting
+        self._skip_start = None  # offset where the skipped block began
+
+    def _offset(self):
+        """Absolute index into raw of the tag the parser is currently at."""
+        line, col = self.getpos()
+        idx = 0
+        for _ in range(line - 1):
+            idx = self.raw.index("\n", idx) + 1
+        return idx + col
+
+    def _matches(self, tag, attrs):
+        attr = dict(attrs)
+        classes = (attr.get("class") or "").split()
+        ident = attr.get("id")
+        for stag, scls, sid in self.selectors:
+            if stag and stag != tag:
+                continue
+            if scls and scls not in classes:
+                continue
+            if sid and sid != ident:
+                continue
+            return True
+        return False
+
+    def handle_starttag(self, tag, attrs):
+        if self._skip_tag is not None:
+            if tag == self._skip_tag and tag not in _VOID_TAGS:
+                self._depth += 1
+            return
+        if self._matches(tag, attrs):
+            start = self._offset()
+            if tag in _VOID_TAGS:
+                # get_starttag_text() is exact, so a '>' inside an attribute
+                # value (title="a > b") doesn't truncate the cut.
+                self.cuts.append((start, start + len(self.get_starttag_text())))
+            else:
+                self._skip_tag = tag
+                self._depth = 1
+                self._skip_start = start
+
+    def handle_startendtag(self, tag, attrs):
+        # An explicitly self-closing tag (<foo/>) -- never a block.
+        if self._skip_tag is None and self._matches(tag, attrs):
+            start = self._offset()
+            self.cuts.append((start, start + len(self.get_starttag_text())))
+
+    def handle_endtag(self, tag):
+        if self._skip_tag is not None and tag == self._skip_tag:
+            self._depth -= 1
+            if self._depth == 0:
+                start = self._offset()
+                end = self.raw.index(">", start) + 1  # </tag> has no attributes
+                self.cuts.append((self._skip_start, end))
+                self._skip_tag = None
+                self._skip_start = None
+
+    def close(self):
+        super().close()
+        # Unclosed matched block (malformed HTML): drop from its start onward.
+        if self._skip_tag is not None:
+            self.cuts.append((self._skip_start, len(self.raw)))
+            self._skip_tag = None
+
+
+def strip_html_elements(raw, spec):
+    """Return raw HTML with every element matching the skip_elements spec removed.
+
+    ``spec`` is a comma-separated list of ``tag`` / ``.class`` / ``tag.class`` /
+    ``#id`` / ``tag#id`` selectors.  A matched element (and, for a block element,
+    everything through its matching close tag) is deleted; all other bytes are
+    preserved exactly.  An empty/blank spec (or a falsy ``raw``) returns ``raw``
+    unchanged.  Used by the body-field handlers to drop wrapper cruft (e.g. a
+    site's ``div.away-mode`` notice) before HTML->markdown rendering.
+    """
+    if not raw:
+        return raw
+    selectors = _parse_selectors(spec or "")
+    if not selectors:
+        return raw
+    parser = _ElementStripper(raw, selectors)
+    parser.feed(raw)
+    parser.close()
+    for start, end in sorted(parser.cuts, reverse=True):
+        raw = raw[:start] + raw[end:]
+    return raw
+
+
+# A bare http(s) URL: not already opened with '<', not mid-word, not in `code`.
+# The body stops at whitespace / angle brackets / backtick.
+_BARE_URL_RE = re.compile(r"(?<![<\w`])(https?://[^\s<>`]+)")
+
+
+def wrap_bare_urls(text):
+    """Wrap bare http(s) URLs in angle brackets (``<https://...>``).
+
+    Discord makes a link preview for every unadorned URL; wrapping in ``<>``
+    suppresses that.  Trailing sentence punctuation (``.,;:!?'"`` and *unbalanced*
+    closing brackets) is left outside the brackets, so ``see https://x.co/a.``
+    becomes ``see <https://x.co/a>.`` while ``.../Foo_(bar)`` keeps its ``)``.
+    URLs already wrapped in ``<>`` or sitting inside ``code`` spans are left alone.
+    """
+
+    def repl(m):
+        url = m.group(1)
+        trail = ""
+        while url and url[-1] in ".,;:!?\"')]}":
+            if url[-1] in ")]}":
+                opener = {")": "(", "]": "[", "}": "{"}[url[-1]]
+                if url.count(opener) >= url.count(url[-1]):
+                    break  # balanced closer -- part of the URL
+            trail = url[-1] + trail
+            url = url[:-1]
+        return "<" + url + ">" + trail
+
+    return _BARE_URL_RE.sub(repl, text)
 
 
 def _collect(token, value, pairs, in_list=False):
