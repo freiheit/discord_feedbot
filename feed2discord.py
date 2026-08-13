@@ -627,6 +627,8 @@ def _field_quote(m, item, FEED):
         content = feedfields.render_text_field(value)
         content = _trim_leading_noise(content)
         content = _truncate_paragraphs(content, FEED.getint("max_paragraphs", 0))
+        if FEED.getboolean("wrap_urls", True):
+            content = feedfields.wrap_bare_urls(content)
         return "\n".join("> " + ln for ln in content.splitlines())
     logger.error("process_field:%s:no such field", field)
     return ""
@@ -694,7 +696,10 @@ def _field_plain(field, item, FEED):
         value = feedfields.strip_html_elements(value, FEED.get("skip_elements", ""))
         rendered = feedfields.render_text_field(value)
         rendered = _trim_leading_noise(rendered)
-        return _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
+        rendered = _truncate_paragraphs(rendered, FEED.getint("max_paragraphs", 0))
+        if FEED.getboolean("wrap_urls", True):
+            rendered = feedfields.wrap_bare_urls(rendered)
+        return rendered
     logger.error("process_field:%s:no such field", field)
     return ""
 

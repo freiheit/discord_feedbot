@@ -265,6 +265,36 @@ def strip_html_elements(raw, spec):
     return raw
 
 
+# A bare http(s) URL: not already opened with '<', not mid-word, not in `code`.
+# The body stops at whitespace / angle brackets / backtick.
+_BARE_URL_RE = re.compile(r"(?<![<\w`])(https?://[^\s<>`]+)")
+
+
+def wrap_bare_urls(text):
+    """Wrap bare http(s) URLs in angle brackets (``<https://...>``).
+
+    Discord makes a link preview for every unadorned URL; wrapping in ``<>``
+    suppresses that.  Trailing sentence punctuation (``.,;:!?'"`` and *unbalanced*
+    closing brackets) is left outside the brackets, so ``see https://x.co/a.``
+    becomes ``see <https://x.co/a>.`` while ``.../Foo_(bar)`` keeps its ``)``.
+    URLs already wrapped in ``<>`` or sitting inside ``code`` spans are left alone.
+    """
+
+    def repl(m):
+        url = m.group(1)
+        trail = ""
+        while url and url[-1] in ".,;:!?\"')]}":
+            if url[-1] in ")]}":
+                opener = {")": "(", "]": "[", "}": "{"}[url[-1]]
+                if url.count(opener) >= url.count(url[-1]):
+                    break  # balanced closer -- part of the URL
+            trail = url[-1] + trail
+            url = url[:-1]
+        return "<" + url + ">" + trail
+
+    return _BARE_URL_RE.sub(repl, text)
+
+
 def _collect(token, value, pairs, in_list=False):
     """Append (token, rendered_value, in_list) leaves for value under token."""
     scalar = _scalar(value)
