@@ -32,7 +32,6 @@ import feedfields
 
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
-from dateutil.tz import gettz
 
 __version__ = "4.2.0"
 
@@ -78,14 +77,14 @@ TZINFOS = {
     "UTC": timezone.utc,
     "GMT": timezone.utc,
     "Z": timezone.utc,
-    "EST": gettz("America/New_York"),
-    "EDT": gettz("America/New_York"),
-    "CST": gettz("America/Chicago"),
-    "CDT": gettz("America/Chicago"),
-    "MST": gettz("America/Denver"),
-    "MDT": gettz("America/Denver"),
-    "PST": gettz("America/Los_Angeles"),
-    "PDT": gettz("America/Los_Angeles"),
+    "EST": ZoneInfo("America/New_York"),
+    "EDT": ZoneInfo("America/New_York"),
+    "CST": ZoneInfo("America/Chicago"),
+    "CDT": ZoneInfo("America/Chicago"),
+    "MST": ZoneInfo("America/Denver"),
+    "MDT": ZoneInfo("America/Denver"),
+    "PST": ZoneInfo("America/Los_Angeles"),
+    "PDT": ZoneInfo("America/Los_Angeles"),
 }
 
 # HTTP statuses that mean "you're being rate-limited / the server is overloaded":
@@ -547,11 +546,6 @@ def _trim_leading_noise(text):
     return "\n\n".join(paras[i:])
 
 
-def _field_string(m):
-    """Return the literal string value from a "quoted" field spec. Called by process_field()."""
-    return m.group(1)
-
-
 def _field_highlight(m, item, FEED):
     """Return a field value wrapped in markup delimiters (bold, italic, spoiler, etc.). Called by process_field()."""
     begin, field, end = m.groups()
@@ -699,32 +693,22 @@ def process_field(field, item, FEED, channel):
             )
             return ""
 
-    logger.trace("%s:process_field:%s: checking regexes", FEED, field)
     if m := _RE_STRING.match(field):
-        logger.trace("%s:process_field:%s:isString", FEED, field)
-        return _field_string(m)
+        return m.group(1)
     if m := _RE_HIGHLIGHT.match(field):
-        logger.trace("%s:process_field:%s:isHighlight", FEED, field)
         return _field_highlight(m, item, FEED)
     if m := _RE_HEADER.match(field):
-        logger.trace("%s:process_field:%s:isHeader", FEED, field)
         return _field_header(m, item)
     if m := _RE_BIGCODE.match(field):
-        logger.trace("%s:process_field:%s:isCodeBlock", FEED, field)
         return _field_bigcode(m, item)
     if m := _RE_QUOTE.match(field):
-        logger.trace("%s:process_field:%s:isBlockquote", FEED, field)
         return _field_quote(m, item, FEED)
     if m := _RE_CODE.match(field):
-        logger.trace("%s:process_field:%s:isCode", FEED, field)
         return _field_code(m, item)
     if m := _RE_TAG.match(field):
-        logger.trace("%s:process_field:%s:isTag", FEED, field)
         return _field_tag(m, item, channel)
     if m := _RE_DICT.match(field):
-        logger.trace("%s:process_field:%s:isDict", FEED, field)
         return _field_dict(m, item)
-    logger.trace("%s:process_field:%s:isPlain", FEED, field)
     return _field_plain(field, item, FEED)
 
 
