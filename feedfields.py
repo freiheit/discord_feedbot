@@ -28,6 +28,7 @@ import urllib.request
 import zlib
 from html.parser import HTMLParser
 
+import feedparser_rs as feedparser
 from html2text import HTML2Text
 
 
@@ -54,21 +55,15 @@ def http_get(url, user_agent, timeout=30):
         return (resp.status, resp.geturl(), body, resp.headers.get("Content-Type", ""))
 
 
-def make_html2text():
-    """Return an HTML2Text configured the way feed2discord renders body fields."""
-    h = HTML2Text()
-    h.ignore_links = True
-    h.ignore_images = True
-    h.ignore_emphasis = False
-    h.body_width = 1000
-    h.unicode_snob = True
-    h.ul_item_mark = "-"
-    return h
-
-
-# Shared instance: HTML2Text.handle() resets its output buffer each call, so the
-# object is stateless between uses and safe to reuse.
-_h2t = make_html2text()
+# Shared HTML2Text, configured the way feed2discord renders body fields.
+# handle() resets its output buffer each call, so reusing one instance is safe.
+_h2t = HTML2Text()
+_h2t.ignore_links = True
+_h2t.ignore_images = True
+_h2t.ignore_emphasis = False
+_h2t.body_width = 1000
+_h2t.unicode_snob = True
+_h2t.ul_item_mark = "-"
 
 
 def _is_mapping(obj):
@@ -373,3 +368,33 @@ def enumerate_fields(entry):
     for key, value in dict(entry).items():
         _collect(key, value, pairs)
     return pairs
+
+
+def fetch_feed(url, user_agent):
+    """Fetch url and parse it with feedparser_rs. Returns the parsed feed.
+
+    Shared by the discovery helpers (show_sample_entry.py, show_all_entries.py,
+    newfeed.py) so they fetch and parse exactly the way the bot does.
+    """
+    return feedparser.parse(http_get(url, user_agent)[2])
+
+
+def print_rendered(entry, truncate=None):
+    """Print every reachable field of an entry as ``=== token ===`` + value.
+
+    ``token`` is exactly what to drop into a feed's ``fields =`` line (including
+    dotted names like ``itunes.duration`` / ``enclosures.href``), so there's no
+    need to read the raw feed to figure out how to address a field.  When
+    ``truncate`` is set, long values are cut to that many characters.
+    """
+    for token, value, in_list in enumerate_fields(entry):
+        print(f"\n=== {token} ===")
+        if truncate is not None and len(value) > truncate:
+            print(value[:truncate])
+            print("... (truncated)")
+        else:
+            print(value)
+        if in_list:
+            print(
+                f"(list -- join all with e.g. [; ]{token}; delim can't contain a comma)"
+            )

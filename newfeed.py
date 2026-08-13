@@ -6,7 +6,6 @@
 # See README.md for instructions on setup and usage
 
 import discord
-import feedparser_rs as feedparser  # Rust parser: matches feed2discord
 import os
 import re
 import readline  # noqa: F401 -- imported for its side effect: input() line editing
@@ -14,31 +13,9 @@ import sys
 from configparser import ConfigParser
 from pathlib import Path
 
-from feedfields import enumerate_fields, http_get
+from feedfields import fetch_feed, print_rendered
 
 USER_AGENT = "linux:github.com/freiheit/discord_feedbot:newfeed.py (by /u/freiheit)"
-
-
-def print_rendered(entry):
-    """Print every reachable field as `=== token ===` + value (values truncated).
-
-    token is exactly what to drop into the `fields =` line below (including dotted
-    names like `itunes.duration` / `enclosures.href`), so you can build the field
-    list from what you see here without reading the raw feed.
-    """
-    for token, value, in_list in enumerate_fields(entry):
-        print(f"\n=== {token} ===")
-        print(value[:500])
-        if len(value) > 500:
-            print("... (truncated)")
-        if in_list:
-            print(
-                f"(list -- join all with e.g. [; ]{token}; delim can't contain a comma)"
-            )
-
-
-def fetch_feed(url):
-    return feedparser.parse(http_get(url, USER_AGENT)[2])
 
 
 # Get login_token from config:
@@ -79,11 +56,11 @@ if len(sys.argv) == 2:
 else:
     feed_url = input("Feed URL: ")
 
-feed_data = fetch_feed(feed_url)
+feed_data = fetch_feed(feed_url, USER_AGENT)
 if feed_data.entries:
     print("Latest feed item to help you figure out fields")
     print("----------")
-    print_rendered(feed_data.entries[0])
+    print_rendered(feed_data.entries[0], truncate=500)
     print("----------")
     print(
         "Recommend: try posting links in a room somewhere to see if discord gives a nice preview"
