@@ -7,9 +7,7 @@ import sys
 
 from feedfields import fetch_feed, print_rendered
 
-USER_AGENT = (
-    "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
-)
+USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_sample_entry.py (by /u/freiheit)"
 
 
 # 0 is command itself:
@@ -21,6 +19,4 @@ if len(sys.argv) == 2:
         sys.exit(1)
     print_rendered(feed_data.entries[0])
 else:
-    print(
-        "Give me 1 feed URL on the command-line, and I'll give the first entry from it."
-    )
+    print("Give me 1 feed URL on the command-line, and I'll give the first entry from it.")

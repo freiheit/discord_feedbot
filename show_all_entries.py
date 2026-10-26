@@ -7,9 +7,7 @@ import sys
 
 from feedfields import fetch_feed, print_rendered
 
-USER_AGENT = (
-    "linux:github.com/freiheit/discord_feedbot:show_all_entries.py (by /u/freiheit)"
-)
+USER_AGENT = "linux:github.com/freiheit/discord_feedbot:show_all_entries.py (by /u/freiheit)"
 
 
 # 0 is command itself:
@@ -19,6 +17,4 @@ if len(sys.argv) == 2:
         print(f"\n## Entry {i}:")
         print_rendered(entry, truncate=500)
 else:
-    print(
-        "Give me 1 feed URL on the command-line, and I'll give all the entries from it."
-    )
+    print("Give me 1 feed URL on the command-line, and I'll give all the entries from it.")
