@@ -5,13 +5,14 @@
 
 # See README.md for instructions on setup and usage
 
-import discord
 import os
 import re
 import readline  # noqa: F401 -- imported for its side effect: input() line editing
 import sys
 from configparser import ConfigParser
 from pathlib import Path
+
+import discord
 
 from feedfields import fetch_feed, print_rendered
 
@@ -62,9 +63,7 @@ if feed_data.entries:
     print("----------")
     print_rendered(feed_data.entries[0], truncate=500)
     print("----------")
-    print(
-        "Recommend: try posting links in a room somewhere to see if discord gives a nice preview"
-    )
+    print("Recommend: try posting links in a room somewhere to see if discord gives a nice preview")
     print("----------")
 else:
     print("No entries in feed? Are you sure that URL is good?")
@@ -72,16 +71,10 @@ else:
 print()
 print("Example (if discord has nice link preview): link")
 print("Example (super-typical): ##title,-#published,<link>,>summary")
-print(
-    "Example (if various useful authors): ##title,_author_,-#published,<link>,>summary"
-)
+print("Example (if various useful authors): ##title,_author_,-#published,<link>,>summary")
 print("Example (super-typical): ##title,-#published,<link>,>description")
-print(
-    'Example (if title not great): "# Discord Status",##title,-#published,<link>,>summary'
-)
-print(
-    "Example (podcast): ##title,###subtitle,-#published,itunes.duration,<enclosures.href>"
-)
+print('Example (if title not great): "# Discord Status",##title,-#published,<link>,>summary')
+print("Example (podcast): ##title,###subtitle,-#published,itunes.duration,<enclosures.href>")
 fields = input("Feed Fields: ")
 
 name = input("Feed and Channel Name: ")
@@ -95,9 +88,7 @@ class MyClient(discord.Client):
         print("Username: {0.name}\nID: {0.id}".format(self.user))
 
         old_room = self.get_channel(default_room)
-        new_room = await old_room.clone(
-            name=name, reason=f"feedbot {feed_url} {fields}"
-        )
+        new_room = await old_room.clone(name=name, reason=f"feedbot {feed_url} {fields}")
         await new_room.edit(reason="Update topic", topic=feed_url)
         self.room_id = new_room.id
 

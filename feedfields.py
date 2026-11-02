@@ -39,9 +39,7 @@ def http_get(url, user_agent, timeout=30):
     body itself since urllib, unlike requests, doesn't.  Raises urllib.error /
     OSError on network failure or non-2xx status; callers handle or crash.
     """
-    req = urllib.request.Request(
-        url, headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"}
-    )
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent, "Accept-Encoding": "gzip, deflate"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         body = resp.read()
         encoding = resp.headers.get("Content-Encoding", "").lower()
@@ -395,6 +393,4 @@ def print_rendered(entry, truncate=None):
         else:
             print(value)
         if in_list:
-            print(
-                f"(list -- join all with e.g. [; ]{token}; delim can't contain a comma)"
-            )
+            print(f"(list -- join all with e.g. [; ]{token}; delim can't contain a comma)")

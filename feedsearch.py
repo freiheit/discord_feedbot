@@ -79,13 +79,7 @@ def feed_info(content):
 def _looks_like_feed(content):
     """Cheap check: does the body start like an XML feed or a JSON Feed?"""
     head = content.lstrip(b"\xef\xbb\xbf").lstrip()[:1024].lower()
-    return (
-        head.startswith(b"<?xml")
-        or b"<rss" in head
-        or b"<feed" in head
-        or b"<rdf" in head
-        or head.startswith(b"{")
-    )
+    return head.startswith(b"<?xml") or b"<rss" in head or b"<feed" in head or b"<rdf" in head or head.startswith(b"{")
 
 
 def validate(url):
@@ -143,11 +137,7 @@ class LinkExtractor(HTMLParser):
             rel = d.get("rel", "").lower()
             typ = d.get("type", "").lower()
             href = d.get("href")
-            if (
-                href
-                and ("alternate" in rel or not rel)
-                and ("rss" in typ or "atom" in typ or "rdf" in typ)
-            ):
+            if href and ("alternate" in rel or not rel) and ("rss" in typ or "atom" in typ or "rdf" in typ):
                 self.alt_links.append(href)
         elif tag == "a" and d.get("href"):
             self._href = d["href"]
@@ -182,15 +172,9 @@ def method_autodiscovery(base, html):
 # --- Method 2: feed-looking links/URLs in the page body --------------------
 def method_body_links(base, html, limit=20, stop_after=3):
     links = _parse_links(html)
-    cands = [
-        urljoin(base, href)
-        for href, text in links.anchors
-        if FEED_HINT.search(href) or FEED_HINT.search(text)
-    ]
+    cands = [urljoin(base, href) for href, text in links.anchors if FEED_HINT.search(href) or FEED_HINT.search(text)]
     # plus any raw absolute URLs in the markup that look feed-ish
-    cands += [
-        u for u in re.findall(r'https?://[^\s"\'<>]+', html) if FEED_HINT.search(u)
-    ]
+    cands += [u for u in re.findall(r'https?://[^\s"\'<>]+', html) if FEED_HINT.search(u)]
     # link-heavy pages (e.g. GitHub) can have many feed-ish-looking URLs that
     # aren't feeds; bound how many we probe so this stays responsive.
     return _validate_candidates(cands, limit=limit, stop_after=stop_after)
@@ -247,9 +231,7 @@ def method_feed_page(base, html):
         if not got or got[0] != 200:
             continue
         sub_html = got[2].decode("utf-8", "replace")
-        found = method_autodiscovery(got[1], sub_html) or method_body_links(
-            got[1], sub_html, limit=6, stop_after=2
-        )
+        found = method_autodiscovery(got[1], sub_html) or method_body_links(got[1], sub_html, limit=6, stop_after=2)
         if found:
             return found
     return []

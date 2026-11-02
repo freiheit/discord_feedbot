@@ -6,6 +6,7 @@
 import asyncio
 import calendar
 import hashlib
+import html
 import logging
 import os
 import random
@@ -16,22 +17,20 @@ import struct
 import sys
 import time
 import warnings
-import html
-
 from argparse import ArgumentParser
 from configparser import ConfigParser
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urljoin
 from pprint import pformat
+from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
 import aiohttp
 import discord
 import feedparser_rs as feedparser  # Rust parser: faster + supports JSON Feed
-import feedfields
-
 from aiohttp.web_exceptions import HTTPError, HTTPNotModified
 from dateutil.parser import parse as parse_datetime
+
+import feedfields
 
 __version__ = "4.3.0"
 
@@ -340,9 +339,7 @@ def sql_maintenance(config):
     # Doing this cleanup at start time because some feeds
     # do contain very old items and we don't want to keep
     # re-evaluating them.
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(days=ITEM_MAX_AGE_DAYS)
-    ).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=ITEM_MAX_AGE_DAYS)).isoformat()
     conn.execute(SQL_CLEAN_OLD_ITEMS, [cutoff])
 
     conn.commit()
@@ -364,26 +361,15 @@ def migrate_db(conn):
         # compatibility with older system SQLite (e.g. 3.34 on RHEL 9).  The new
         # table carries the full current schema (incl. urls); copy urls across
         # too if the old table happened to have it, so a rebuild never drops it.
-        conn.execute(
-            "CREATE TABLE feed_items_new "
-            "(id text PRIMARY KEY, published text, urls text)"
-        )
+        conn.execute("CREATE TABLE feed_items_new (id text PRIMARY KEY, published text, urls text)")
         if "urls" in feed_items_cols:
-            conn.execute(
-                "INSERT INTO feed_items_new (id, published, urls) "
-                "SELECT id, published, urls FROM feed_items"
-            )
+            conn.execute("INSERT INTO feed_items_new (id, published, urls) SELECT id, published, urls FROM feed_items")
         else:
-            conn.execute(
-                "INSERT INTO feed_items_new (id, published) "
-                "SELECT id, published FROM feed_items"
-            )
+            conn.execute("INSERT INTO feed_items_new (id, published) SELECT id, published FROM feed_items")
         conn.execute("DROP TABLE feed_items")
         conn.execute("ALTER TABLE feed_items_new RENAME TO feed_items")
         feed_items_cols = {r[1] for r in conn.execute("PRAGMA table_info(feed_items)")}
-        logger.notice(
-            "migrate_db: removed unused columns from feed_items: %s", dead_cols
-        )
+        logger.notice("migrate_db: removed unused columns from feed_items: %s", dead_cols)
 
     if "urls" not in feed_items_cols:
         # Stores the item's link(s) alongside its dedupe id so a row can be found
@@ -391,24 +377,18 @@ def migrate_db(conn):
         conn.execute("ALTER TABLE feed_items ADD COLUMN urls text")
         logger.notice("migrate_db: added urls column to feed_items")
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(published)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS feed_items_published ON feed_items(published)")
 
     # Index for locating a row by its stored url (to delete it and force a
     # re-post).  NOCASE collation so the default case-insensitive LIKE can use it
     # for prefix lookups ("urls LIKE 'https://.../1ult3jk/%'"), not just exact
     # "urls = ?".  A leading-wildcard substring ("urls LIKE '%slug%'") still scans
     # -- no B-tree can serve that -- but that scan is cheap at this table's size.
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS feed_items_urls ON feed_items(urls COLLATE NOCASE)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS feed_items_urls ON feed_items(urls COLLATE NOCASE)")
 
     # Normalize any published dates that SQLite's julianday() can't parse
     # (old rows may have been stored in ctime or RFC-1123 format).
-    bad_rows = conn.execute(
-        "SELECT id, published FROM feed_items WHERE julianday(published) IS NULL"
-    ).fetchall()
+    bad_rows = conn.execute("SELECT id, published FROM feed_items WHERE julianday(published) IS NULL").fetchall()
     updated = 0
     deleted = 0
     for row_id, raw_date in bad_rows:
@@ -490,9 +470,7 @@ async def maybe_send_typing(FEED, feed, channels):
             await asyncio.wait_for(channel["object"].typing(), timeout=5)
             logger.verbose("%s:%s:sent typing", feed, channel["name"])
         except discord.errors.Forbidden:
-            logger.exception(
-                "%s:%s:forbidden - is bot allowed in channel?", feed, channel["name"]
-            )
+            logger.exception("%s:%s:forbidden - is bot allowed in channel?", feed, channel["name"])
         except discord.errors.NotFound:
             logger.warning(
                 "%s:%s:channel not found (404) — check channel config",
@@ -502,8 +480,7 @@ async def maybe_send_typing(FEED, feed, channels):
         except (asyncio.TimeoutError, discord.errors.RateLimited):
             typing_disabled.add(feed)
             logger.warning(
-                "%s:typing rate-limited; disabling send_typing for this feed "
-                "until restart",
+                "%s:typing rate-limited; disabling send_typing for this feed until restart",
                 feed,
             )
             return
@@ -636,11 +613,7 @@ def _field_dict(m, item):
         logger.error("process_field:%s:no such field", field)
         return ""
     if isinstance(obj, list):
-        parts = [
-            str(x.get(dictkey))
-            for x in obj
-            if hasattr(x, "get") and x.get(dictkey) is not None
-        ]
+        parts = [str(x.get(dictkey)) for x in obj if hasattr(x, "get") and x.get(dictkey) is not None]
         return delim.join(parts)
     if hasattr(obj, "get"):
         value = obj.get(dictkey)
@@ -688,9 +661,7 @@ def process_field(field, item, FEED, channel):
         if item.get("guid") is not None:
             return item_url_base + item["guid"]
         else:
-            logger.error(
-                "process_field:guid:no such field; try show_sample_entry.py on feed"
-            )
+            logger.error("process_field:guid:no such field; try show_sample_entry.py on feed")
             return ""
 
     if m := _RE_STRING.match(field):
@@ -750,9 +721,7 @@ def _split_message(text, limit=MESSAGE_CHUNK_LIMIT):
 def build_message(FEED, item, channel):
     """Build the full Discord message string for an item. Called by _collect_item_sends()."""
     message = ""
-    fieldlist = FEED.get(
-        channel["name"] + ".fields", FEED.get("fields", "id,description")
-    ).split(",")
+    fieldlist = FEED.get(channel["name"] + ".fields", FEED.get("fields", "id,description")).split(",")
     # Extract fields in order
     for field in fieldlist:
         logger.trace("feed:item:build_message:%s:added to message", field)
@@ -782,9 +751,7 @@ async def _send_channel_batches(sends_by_channel, feed, FEED):
         if not messages:
             continue
         delay = FEED.getint(channel_name + ".delay", FEED.getint("delay", 0))
-        interval = FEED.getint(
-            channel_name + ".send_interval", FEED.getint("send_interval", 3)
-        )
+        interval = FEED.getint(channel_name + ".send_interval", FEED.getint("send_interval", 3))
         logger.debug(
             "%s:%s:sending %d message(s), delay=%ds interval=%ds",
             feed,
@@ -814,23 +781,16 @@ async def actually_send_message(channel, message, FEED, feed):
     # max_messages caps how many Discord messages one item may produce.  0 (the
     # default) means unlimited; a positive value keeps the first N chunks and
     # marks the last as truncated.  Per-feed and per-channel overridable.
-    max_messages = FEED.getint(
-        channel["name"] + ".max_messages", FEED.getint("max_messages", 0)
-    )
+    max_messages = FEED.getint(channel["name"] + ".max_messages", FEED.getint("max_messages", 0))
     truncated = False
     if max_messages > 0 and len(chunks) > max_messages:
         chunks = chunks[:max_messages]
         truncated = True
 
     total = len(chunks)
-    publish = (
-        config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1
-        and channel["object"].is_news()
-    )
+    publish = config["MAIN"].getint("publish", FEED.getint("publish", 0)) >= 1 and channel["object"].is_news()
 
-    logger.debug(
-        "%s:%s:actually sending message in %d part(s)", feed, channel["name"], total
-    )
+    logger.debug("%s:%s:actually sending message in %d part(s)", feed, channel["name"], total)
     for i, chunk in enumerate(chunks):
         # Add subtext markers so readers can tell a post was split.
         parts = []
@@ -878,14 +838,10 @@ def _resolve_channels(feed, FEED, config, client):
             channels.append({"object": channel_obj, "name": key, "id": channel_id})
             logger.trace(feed + ": added channel " + key)
         else:
-            logger.warning(
-                feed + ": did not add channel " + key + "/" + str(channel_id)
-            )
+            logger.warning(feed + ": did not add channel " + key + "/" + str(channel_id))
             logger.warning(pformat(channel_obj))
     if not channels:
-        logger.warning(
-            "%s: no valid channels found — messages will never be sent", feed
-        )
+        logger.warning("%s: no valid channels found — messages will never be sent", feed)
     return channels
 
 
@@ -1085,13 +1041,7 @@ def _apply_channel_filter(channel, item, FEED, feed):
             FEED.get("filter", "^.*$"),
         )
         logger.info(
-            feed
-            + ":item:using filter:"
-            + regexpat
-            + " on "
-            + item.get("title", "?")
-            + " field "
-            + filter_field
+            feed + ":item:using filter:" + regexpat + " on " + item.get("title", "?") + " field " + filter_field
         )
         match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is None:
@@ -1105,13 +1055,7 @@ def _apply_channel_filter(channel, item, FEED, feed):
             FEED.get("filter_exclude", "^.*$"),
         )
         logger.info(
-            feed
-            + ":item:using filter_exclude:"
-            + regexpat
-            + " on "
-            + item.get("title", "?")
-            + " field "
-            + filter_field
+            feed + ":item:using filter_exclude:" + regexpat + " on " + item.get("title", "?") + " field " + filter_field
         )
         match = re.search(regexpat, process_field(filter_field, item, FEED, channel))
         if match is not None:
@@ -1159,11 +1103,7 @@ def _collect_item_sends(item, itemid, pubdate, feed, FEED, channels, conn, max_a
             message = build_message(FEED, item, channel)
             sends.append((channel, message))
         else:
-            logger.info(
-                feed
-                + ":item:skipping item due to not passing filter for "
-                + channel["name"]
-            )
+            logger.info(feed + ":item:skipping item due to not passing filter for " + channel["name"])
     return sends
 
 
@@ -1243,8 +1183,7 @@ async def background_check_feed(feed):
             if http_response.status in BACKOFF_STATUSES:
                 current_refresh = min(current_refresh * 2, backoff_max)
                 logger.warning(
-                    "%s:HTTP %s (rate-limited/overloaded); backing off, "
-                    "next check in %d seconds",
+                    "%s:HTTP %s (rate-limited/overloaded); backing off, next check in %d seconds",
                     feed,
                     http_response.status,
                     current_refresh,
@@ -1252,9 +1191,7 @@ async def background_check_feed(feed):
                 http_response.close()
                 raise HTTPError()
 
-            http_data, new_hash = await _read_feed_response(
-                http_response, feed, stored_hash
-            )
+            http_data, new_hash = await _read_feed_response(http_response, feed, stored_hash)
 
             # Server responded with 200; clear any previous backoff.
             if current_refresh != rss_refresh_time:
@@ -1287,9 +1224,7 @@ async def background_check_feed(feed):
                 pubdate = extract_best_item_date(item, TIMEZONE)
                 logger.trace(feed + ":item:itemid:" + itemid)
                 logger.trace(feed + ":item:checking database history for this item")
-                if conn.execute(
-                    "SELECT 1 FROM feed_items WHERE id=?", [itemid]
-                ).fetchone():
+                if conn.execute("SELECT 1 FROM feed_items WHERE id=?", [itemid]).fetchone():
                     logger.trace(feed + ":item:" + itemid + " seen before, skipping")
                     continue
 
@@ -1305,12 +1240,8 @@ async def background_check_feed(feed):
             sends_by_channel = {}
             for pubdate, itemid, item in new_items:
                 logger.info(feed + ":item " + itemid + " unseen, processing:")
-                for channel, message in _collect_item_sends(
-                    item, itemid, pubdate, feed, FEED, channels, conn, max_age
-                ):
-                    sends_by_channel.setdefault(channel["name"], []).append(
-                        (channel, message)
-                    )
+                for channel, message in _collect_item_sends(item, itemid, pubdate, feed, FEED, channels, conn, max_age):
+                    sends_by_channel.setdefault(channel["name"], []).append((channel, message))
 
             # Persist the dedupe inserts and release the DB connection before the
             # (potentially slow, paced) sending begins.  Clearing conn keeps the
@@ -1326,9 +1257,7 @@ async def background_check_feed(feed):
         # This is completely expected behavior for a well-behaved feed:
         except HTTPNotModified:
             current_refresh = rss_refresh_time
-            logger.debug(
-                feed + ":Headers indicate feed unchanged since last time fetched:"
-            )
+            logger.debug(feed + ":Headers indicate feed unchanged since last time fetched:")
             logger.trace("%s:exc_info: %s", feed, sys.exc_info())
         # Many feeds have random periodic problems that shouldn't cause
         # permanent death.  The specific status was already logged above (the
@@ -1359,9 +1288,7 @@ async def background_check_feed(feed):
         # are expected and self-heal on the next poll, so log one concise line
         # (with the feed name) instead of a scary "unexpected error" traceback.
         except (aiohttp.ClientError, asyncio.TimeoutError) as neterr:
-            logger.warning(
-                "%s:network error (%s); will retry later", feed, type(neterr).__name__
-            )
+            logger.warning("%s:network error (%s); will retry later", feed, type(neterr).__name__)
         # unknown error: definitely give up and die and move on
         except Exception:
             logger.exception("%s:Unexpected error - giving up", feed)
@@ -1436,9 +1363,7 @@ def main():
         loop.set_debug(True)
 
     feeds = get_feeds_config(config)
-    logger.notice(
-        "Starting up feed2discord v%s with %d feed(s)", __version__, len(feeds)
-    )
+    logger.notice("Starting up feed2discord v%s with %d feed(s)", __version__, len(feeds))
     sql_maintenance(config)
 
     try:
